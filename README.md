@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://pypi.org/project/roundpipe/"><img src="https://img.shields.io/pypi/v/roundpipe.svg" alt="PyPI"></a>
   <a href="https://pypi.org/project/roundpipe/"><img src="https://img.shields.io/pypi/pyversions/roundpipe.svg" alt="Python"></a>
-  <a href="https://github.com/thustorage/RoundPipe/blob/main/COPYING.LESSER"><img src="https://img.shields.io/badge/license-LGPL--3.0-blue.svg" alt="License"></a>
+  <a href="https://github.com/thustorage/RoundPipe/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"></a>
   <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code style: black"></a>
   <a href="https://clang.llvm.org/docs/ClangFormat.html"><img src="https://img.shields.io/badge/code%20style-clang--format-blue.svg" alt="Code style: clang-format"></a>
   <a href="https://linux.do" alt="LINUX DO">
@@ -103,7 +103,7 @@ Full documentation is available at **[thustorage.github.io/RoundPipe](https://th
 
 ## License
 
-RoundPipe is licensed under the [LGPL-3.0](COPYING.LESSER).
+RoundPipe is licensed under the [Apache License 2.0](LICENSE).
 
 ## Citation
 If you find RoundPipe useful in your research, please consider citing:
