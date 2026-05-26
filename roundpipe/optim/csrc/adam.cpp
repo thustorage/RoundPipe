@@ -79,11 +79,19 @@ void adam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
             int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
             int64_t offset =
                 (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
-            adam_kernel(amsgrad, maximize, weight_decay == 0.0f, decoupled_weight_decay,
-                        params_ptr[i] + offset, grads_ptr[i] + offset,
-                        exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset,
-                        max_exp_avg_sq_ptr[i] + offset, lr, beta1, beta2, eps,
-                        weight_decay, block_size, step_int[i]);
+            if (amsgrad) {
+                adam_kernel(true, maximize, weight_decay == 0.0f, decoupled_weight_decay,
+                            params_ptr[i] + offset, grads_ptr[i] + offset,
+                            exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset,
+                            max_exp_avg_sq_ptr[i] + offset, lr, beta1, beta2, eps,
+                            weight_decay, block_size, step_int[i]);
+            } else {
+                adam_kernel(false, maximize, weight_decay == 0.0f, decoupled_weight_decay,
+                            params_ptr[i] + offset, grads_ptr[i] + offset,
+                            exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset,
+                            nullptr, lr, beta1, beta2, eps, weight_decay, block_size,
+                            step_int[i]);
+            }
         }
     }
 }

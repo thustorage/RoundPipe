@@ -73,3 +73,29 @@ def test_Adam(
         maximize=maximize,
         decoupled_weight_decay=decoupled_weight_decay,
     )
+
+
+@pytest.mark.parametrize("amsgrad", [False, True])
+def test_Adam_bfloat16_source_tiny_gradients(amsgrad: bool) -> None:
+    generator = torch.Generator().manual_seed(0)
+    source_param = (
+        torch.randn(1, 128, dtype=torch.float32, generator=generator)
+        .to(torch.bfloat16)
+        .float()
+        * 0.01
+    )
+    source_grad = (
+        torch.randn(1, 128, dtype=torch.float32, generator=generator) * 1e-20
+    ).to(torch.bfloat16)
+    param = source_param.clone().detach().requires_grad_(True)
+    ref_param = source_param.clone().detach().requires_grad_(True)
+    param.grad = source_grad.float()
+    ref_param.grad = param.grad.clone()
+
+    optimizer = Adam([param], lr=1e-5, eps=1e-8, amsgrad=amsgrad)
+    ref_optimizer = torch.optim.Adam([ref_param], lr=1e-5, eps=1e-8, amsgrad=amsgrad)
+    optimizer.step()
+    ref_optimizer.step()
+
+    assert torch.isfinite(param).all()
+    assert torch.allclose(param, ref_param, atol=1e-6)

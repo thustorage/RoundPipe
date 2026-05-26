@@ -14,7 +14,7 @@ from torch.utils.cpp_extension import load, verify_ninja_availability
 from cpuinfo import get_cpu_info
 
 SRC_PATH = pathlib.Path(__file__).parent / "csrc"
-CPP_FLAGS = ["-Ofast", "-fopenmp", "-mtune=native", "-march=native"]
+CPP_FLAGS = ["-O3", "-fopenmp", "-mtune=native", "-march=native"]
 # CPP_FLAGS.append("-fopt-info-vec-all=vec.log")
 
 loaded_optim_functions: Dict[str, Callable] = {}
@@ -49,8 +49,14 @@ def load_optim_function(name: str) -> None:
     if name in loaded_optim_functions:
         return
     verify_ninja_availability()
-    mod_name = f"roundpipe_optim_{name}_{get_cpu_flags_hash()}"
     source_files = [str(SRC_PATH / f"{name}.cpp")]
+    source_hash = hashlib.md5(
+        b"".join(pathlib.Path(path).read_bytes() for path in source_files)
+    ).hexdigest()[:8]
+    flags_hash = hashlib.md5(" ".join(CPP_FLAGS).encode()).hexdigest()[:8]
+    mod_name = (
+        f"roundpipe_optim_{name}_{get_cpu_flags_hash()}_{source_hash}_{flags_hash}"
+    )
     loaded_module = load(name=mod_name, sources=source_files, extra_cflags=CPP_FLAGS)
     loaded_optim_functions[name] = getattr(loaded_module, name)
 
