@@ -30,8 +30,10 @@ def run_optim(
     optimizer = cls(params, *optim_args, **optim_kwargs)
     ref_optimizer = ref_cls(ref_params, *optim_args, **optim_kwargs)
     for _ in range(10):
-        for p, ref_p in zip(params, ref_params):
+        for i, (p, ref_p) in enumerate(zip(params, ref_params)):
             p.grad = torch.randn_like(p)
+            if i % 100 == 0:
+                p.grad *= 1e-20  # to test small gradients
             ref_p.grad = p.grad.clone()
         optimizer.step()
         ref_optimizer.step()

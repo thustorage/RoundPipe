@@ -14,7 +14,13 @@ from torch.utils.cpp_extension import load, verify_ninja_availability
 from cpuinfo import get_cpu_info
 
 SRC_PATH = pathlib.Path(__file__).parent / "csrc"
-CPP_FLAGS = ["-Ofast", "-fopenmp", "-mtune=native", "-march=native"]
+CPP_FLAGS = [
+    "-Ofast",
+    "-fopenmp",
+    "-mtune=native",
+    "-march=native",
+    "-fno-unsafe-math-optimizations",
+]
 # CPP_FLAGS.append("-fopt-info-vec-all=vec.log")
 
 loaded_optim_functions: Dict[str, Callable] = {}
@@ -40,6 +46,16 @@ def get_cpu_flags_hash() -> str:
         return "unknown"
 
 
+def get_cpp_flags_hash() -> str:
+    """Get a hash string representing the CPP compilation flags.
+
+    Returns:
+        A string hash of the CPP compilation flags.
+    """
+    flags_str = ",".join(sorted(CPP_FLAGS))
+    return hashlib.md5(flags_str.encode()).hexdigest()[:8]
+
+
 def load_optim_function(name: str) -> None:
     """Compile and load the optimizer function from source by name.
 
@@ -49,7 +65,7 @@ def load_optim_function(name: str) -> None:
     if name in loaded_optim_functions:
         return
     verify_ninja_availability()
-    mod_name = f"roundpipe_optim_{name}_{get_cpu_flags_hash()}"
+    mod_name = f"roundpipe_optim_{name}_{get_cpu_flags_hash()}_{get_cpp_flags_hash()}"
     source_files = [str(SRC_PATH / f"{name}.cpp")]
     loaded_module = load(name=mod_name, sources=source_files, extra_cflags=CPP_FLAGS)
     loaded_optim_functions[name] = getattr(loaded_module, name)
