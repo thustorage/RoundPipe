@@ -122,7 +122,7 @@ def test_io_spec(num_microbatch):
     args_spec = (_Replicate, TensorChunkSpec(1))
     kwargs_spec = {
         "x": TensorChunkSpec(0),
-        "packed_arg": TensorChunkSpec(0),
+        "packed_arg": _Replicate,
         "non_tensor": _Replicate,
     }
     label_spec = (_Replicate, TensorChunkSpec(1), _Replicate)
