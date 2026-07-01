@@ -43,15 +43,17 @@ def run_optim(
 
 @pytest.mark.parametrize(
     "lr_betas, weight_decay, amsgrad, maximize, decoupled_weight_decay",
-    itertools.product(
-        [
-            (0.01, 0.9, 0.999),
-            (torch.tensor(0.001), torch.tensor(0.8), torch.tensor(0.95)),
-        ],
-        [0.0, 0.01],
-        [True, False],
-        [True, False],
-        [True, False],
+    list(
+        itertools.product(
+            [
+                (0.01, 0.9, 0.999),
+                (torch.tensor(0.001), torch.tensor(0.8), torch.tensor(0.95)),
+            ],
+            [0.0, 0.01],
+            [True, False],
+            [True, False],
+            [True, False],
+        )
     ),
 )
 def test_Adam(

@@ -15,7 +15,7 @@ from roundpipe.run_config import RoundPipeRunConfig, FullRoundPipeRunConfig
 
 
 @pytest.mark.parametrize(
-    "num_microbatch, merge_output", itertools.product([2, 3, 4], [True, None])
+    "num_microbatch, merge_output", list(itertools.product([2, 3, 4], [True, None]))
 )
 def test_io_auto(num_microbatch, merge_output):
     events: List[List[torch.cuda.Event]] = [

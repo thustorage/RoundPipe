@@ -102,7 +102,7 @@ def test_qwen3_miniumn(use_preset: bool):
 
 
 @pytest.mark.parametrize(
-    "use_preset, is_async", itertools.product([True, False], [True, False])
+    "use_preset, is_async", list(itertools.product([True, False], [True, False]))
 )
 def test_qwen3_classic(use_preset: bool, is_async: bool):
     raw_model = AutoModelForCausalLM.from_pretrained(

@@ -10,7 +10,7 @@ from roundpipe.roundpipe import RoundPipe, AutoRoundPipe
 
 @pytest.mark.parametrize(
     "model_class, designate",
-    itertools.product([RoundPipe, AutoRoundPipe], [True, False]),
+    list(itertools.product([RoundPipe, AutoRoundPipe], [True, False])),
 )
 def test_RoundPipe_attribute_shim(model_class, designate):
     original_model = nn.Linear(10, 5)
