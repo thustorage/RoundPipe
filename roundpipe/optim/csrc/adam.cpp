@@ -11,8 +11,8 @@ void adam_kernel(float *__restrict params, const float *__restrict grads,
                  float eps, float weight_decay, int64_t param_size, int64_t step) {
     float one_beta1 = 1.0f - beta1;
     float one_beta2 = 1.0f - beta2;
-    float bias_correction1 = 1.0f - powf(beta1, step);
-    float bias_correction2 = 1.0f - powf(beta2, step);
+    float bias_correction1 = 1.0f - pow(beta1, step);
+    float bias_correction2 = 1.0f - pow(beta2, step);
     float one_lr_weight_decay = 1.0f - lr * weight_decay;
     float step_size = lr / bias_correction1;
     float div_bias_correction2 = 1.0f / bias_correction2;
@@ -30,10 +30,10 @@ void adam_kernel(float *__restrict params, const float *__restrict grads,
         exp_avg_sq[i] = beta2 * exp_avg_sq[i] + one_beta2 * grad * grad;
         float denom;
         if (amsgrad) {
-            max_exp_avg_sq[i] = fmaxf(max_exp_avg_sq[i], exp_avg_sq[i]);
-            denom = sqrtf(max_exp_avg_sq[i] * div_bias_correction2) + eps;
+            max_exp_avg_sq[i] = max(max_exp_avg_sq[i], exp_avg_sq[i]);
+            denom = sqrt(max_exp_avg_sq[i] * div_bias_correction2) + eps;
         } else {
-            denom = sqrtf(exp_avg_sq[i] * div_bias_correction2) + eps;
+            denom = sqrt(exp_avg_sq[i] * div_bias_correction2) + eps;
         }
         params[i] -= step_size * exp_avg[i] / denom;
     }

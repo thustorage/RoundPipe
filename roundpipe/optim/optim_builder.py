@@ -20,8 +20,8 @@ CPP_FLAGS = [
     "-mtune=native",
     "-march=native",
     "-fno-unsafe-math-optimizations",
+    "-fopt-info-vec-all=vec.log",
 ]
-# CPP_FLAGS.append("-fopt-info-vec-all=vec.log")
 
 loaded_optim_functions: Dict[str, Callable] = {}
 
