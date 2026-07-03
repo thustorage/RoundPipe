@@ -160,24 +160,16 @@ class GptOssForCausalLMPrefix(nn.Module):
             )
         past_key_values = None
 
-        if cache_position is None:
-            past_seen_tokens = (
-                past_key_values.get_seq_length() if past_key_values is not None else 0
-            )
-            cache_position = torch.arange(
-                past_seen_tokens,
-                past_seen_tokens + inputs_embeds.shape[1],
-                device=inputs_embeds.device,
-            )
         if position_ids is None:
-            position_ids = cache_position.unsqueeze(0)
+            position_ids = torch.arange(
+                inputs_embeds.shape[1], device=inputs_embeds.device
+            ).unsqueeze(0)
 
         if not isinstance(causal_mask_mapping := attention_mask, dict):
             mask_kwargs = {
                 "config": self.config,
-                "input_embeds": inputs_embeds,
+                "inputs_embeds": inputs_embeds,
                 "attention_mask": attention_mask,
-                "cache_position": cache_position,
                 "past_key_values": past_key_values,
             }
             causal_mask_mapping = {
@@ -211,7 +203,7 @@ class GptOssForCausalLMWrappedLayer(nn.Module):
         self.mlp = layer.mlp
         self.input_layernorm = layer.input_layernorm
         self.post_attention_layernorm = layer.post_attention_layernorm
-        self.attention_type = layer.attention_type
+        self.attention_type = layer.self_attn.attention_type
 
     def forward(self, input):
         (

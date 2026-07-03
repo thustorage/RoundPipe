@@ -70,27 +70,18 @@ class Qwen3ForCausalLMPrefix(nn.Module):
             )
         past_key_values = None
 
-        if cache_position is None:
-            past_seen_tokens = (
-                past_key_values.get_seq_length() if past_key_values is not None else 0
-            )
-            cache_position = torch.arange(
-                past_seen_tokens,
-                past_seen_tokens + inputs_embeds.shape[1],
-                device=inputs_embeds.device,
-            )
-
         if position_ids is None:
-            position_ids = cache_position.unsqueeze(0)
+            position_ids = torch.arange(
+                inputs_embeds.shape[1], device=inputs_embeds.device
+            ).unsqueeze(0)
 
         # It may already have been prepared by e.g. `generate`
         if not isinstance(causal_mask_mapping := attention_mask, dict):
             # Prepare mask arguments
             mask_kwargs = {
                 "config": self.config,
-                "input_embeds": inputs_embeds,
+                "inputs_embeds": inputs_embeds,
                 "attention_mask": attention_mask,
-                "cache_position": cache_position,
                 "past_key_values": past_key_values,
                 "position_ids": position_ids,
             }
@@ -105,8 +96,6 @@ class Qwen3ForCausalLMPrefix(nn.Module):
                 )
 
         hidden_states = inputs_embeds
-
-        # create position embeddings to be shared across the decoder layers
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
 
         save_for_recompute(causal_mask_mapping, position_ids, position_embeddings)
@@ -138,11 +127,10 @@ class Qwen3ForCausalLMWrappedLayer(nn.Module):
         ) = input
         hidden_states = self.layer(
             hidden_states,
-            attention_mask=causal_mask_mapping[self.layer.attention_type],
+            attention_mask=causal_mask_mapping[self.layer.self_attn.layer_type],
             position_ids=position_ids,
             past_key_values=None,
             use_cache=False,
-            cache_position=None,
             position_embeddings=position_embeddings,
             **kwargs,
         )

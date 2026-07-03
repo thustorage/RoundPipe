@@ -64,25 +64,16 @@ class LlamaForCausalLMPrefix(nn.Module):
             )
         past_key_values = None
 
-        if cache_position is None:
-            past_seen_tokens = (
-                past_key_values.get_seq_length() if past_key_values is not None else 0
-            )
-            cache_position = torch.arange(
-                past_seen_tokens,
-                past_seen_tokens + inputs_embeds.shape[1],
-                device=inputs_embeds.device,
-            )
-
         if position_ids is None:
-            position_ids = cache_position.unsqueeze(0)
+            position_ids = torch.arange(
+                inputs_embeds.shape[1], device=inputs_embeds.device
+            ).unsqueeze(0)
 
         if not isinstance(causal_mask := attention_mask, dict):
             causal_mask = create_causal_mask(
                 config=self.config,
-                input_embeds=inputs_embeds,
+                inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
-                cache_position=cache_position,
                 past_key_values=past_key_values,
                 position_ids=position_ids,
             )
@@ -123,7 +114,6 @@ class LlamaForCausalLMWrappedLayer(nn.Module):
             position_ids=position_ids,
             past_key_values=None,
             use_cache=False,
-            cache_position=None,
             position_embeddings=position_embeddings,
             **kwargs,
         )

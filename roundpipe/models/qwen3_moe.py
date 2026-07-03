@@ -82,17 +82,10 @@ class Qwen3MoeForCausalLMPrefix(nn.Module):
             )
         past_key_values = None
 
-        if cache_position is None:
-            past_seen_tokens = (
-                past_key_values.get_seq_length() if past_key_values is not None else 0
-            )
-            cache_position = torch.arange(
-                past_seen_tokens,
-                past_seen_tokens + inputs_embeds.shape[1],
-                device=inputs_embeds.device,
-            )
         if position_ids is None:
-            position_ids = cache_position.unsqueeze(0)
+            position_ids = torch.arange(
+                inputs_embeds.shape[1], device=inputs_embeds.device
+            ).unsqueeze(0)
 
         mask_function = (
             create_causal_mask
@@ -101,9 +94,8 @@ class Qwen3MoeForCausalLMPrefix(nn.Module):
         )
         causal_mask = mask_function(
             config=self.config,
-            input_embeds=inputs_embeds,
+            inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
-            cache_position=cache_position,
             past_key_values=past_key_values,
             position_ids=position_ids,
         )
@@ -256,7 +248,7 @@ class Qwen3MoeForCausalLMWrappedLayer(nn.Module):
             attention_mask=causal_mask,
             position_ids=position_ids,
             past_key_values=None,
-            cache_position=None,
+            use_cache=False,
             **kwargs,
         )
         hidden_states = residual + hidden_states
