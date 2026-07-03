@@ -4,7 +4,9 @@ and optimized for fp32 stepping on CPU.
 """
 
 from .adam import Adam
+from .adamw import AdamW
 
 __all__ = [
     "Adam",
+    "AdamW",
 ]
