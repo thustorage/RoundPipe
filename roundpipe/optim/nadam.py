@@ -8,27 +8,26 @@ from torch.optim.optimizer import Optimizer, ParamsT, _get_scalar_dtype
 from .optim_builder import get_optim_function, load_optim_function
 
 
-class Adam(Optimizer):
-    """Implements Adam algorithm with fp32 stepping on CPU."""
+class NAdam(Optimizer):
+    """Implements NAdam algorithm with fp32 stepping on CPU."""
 
     def __init__(
         self,
         params: ParamsT,
-        lr: Union[float, torch.Tensor] = 1e-3,
+        lr: Union[float, torch.Tensor] = 2e-3,
         betas: Tuple[Union[float, torch.Tensor], Union[float, torch.Tensor]] = (
             0.9,
             0.999,
         ),
         eps: float = 1e-8,
         weight_decay: float = 0.0,
-        amsgrad: bool = False,
+        momentum_decay: float = 4e-3,
+        decoupled_weight_decay: bool = False,
         *,
         foreach: Optional[bool] = None,
         maximize: bool = False,
         capturable: bool = False,
         differentiable: bool = False,
-        fused: Optional[bool] = None,
-        decoupled_weight_decay: bool = False,
     ):
         """
         Args:
@@ -38,24 +37,19 @@ class Adam(Optimizer):
             lr: learning rate.
             betas: coefficients used for computing running averages of gradient and its square
             eps: term added to the denominator to improve numerical stability
-            weight_decay: weight decay coefficient
-            amsgrad: whether to use the AMSGrad variant of this algorithm from the paper
-                `On the Convergence of Adam and Beyond`
+            weight_decay: weight decay (L2 penalty)
+            momentum_decay: momentum decay
+            decoupled_weight_decay: whether to decouple the weight decay as in AdamW to obtain
+                NAdamW. If True, the algorithm does not accumulate weight decay in the momentum
+                nor variance.
             maximize: maximize the objective with respect to the params, instead of minimizing
-            decoupled_weight_decay: if True, this optimizer is equivalent to AdamW and the
-                algorithm will not accumulate weight decay in the momentum nor variance.
-            foreach: Compatible placeholder for PyTorch's Adam optimizer.
-            capturable: Compatible placeholder for PyTorch's Adam optimizer.
-            differentiable: Compatible placeholder for PyTorch's Adam optimizer.
-            fused: Compatible placeholder for PyTorch's Adam optimizer.
+            foreach: Compatible placeholder for PyTorch's NAdam optimizer.
+            capturable: Compatible placeholder for PyTorch's NAdam optimizer.
+            differentiable: Compatible placeholder for PyTorch's NAdam optimizer.
         """
-        load_optim_function("adam")
+        load_optim_function("nadam")
         assert capturable is False, "capturable=True is not supported."
         assert differentiable is False, "differentiable=True is not supported."
-        if fused is not None:
-            warnings.warn(
-                "The fused option is not supported and will be ignored.", UserWarning
-            )
         if foreach is not None:
             warnings.warn(
                 "The foreach option is not supported and will be ignored.", UserWarning
@@ -78,15 +72,17 @@ class Adam(Optimizer):
             raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
         if not 0.0 <= weight_decay:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+        if not 0.0 <= momentum_decay:
+            raise ValueError(f"Invalid momentum_decay value: {momentum_decay}")
 
         defaults = dict(
             lr=lr,
             betas=betas,
             eps=eps,
             weight_decay=weight_decay,
-            amsgrad=amsgrad,
-            maximize=maximize,
+            momentum_decay=momentum_decay,
             decoupled_weight_decay=decoupled_weight_decay,
+            maximize=maximize,
         )
         super().__init__(params, defaults)
 
@@ -100,14 +96,21 @@ class Adam(Optimizer):
         """
         super().__setstate__(state)
         for group in self.param_groups:
-            group.setdefault("amsgrad", False)
             group.setdefault("maximize", False)
             group.setdefault("decoupled_weight_decay", False)
             for p in group["params"]:
                 p_state = self.state.get(p, [])
-                if len(p_state) != 0 and not torch.is_tensor(p_state["step"]):
-                    step_val = float(p_state["step"])
-                    p_state["step"] = torch.tensor(step_val, dtype=_get_scalar_dtype())
+                if len(p_state) != 0:
+                    if not torch.is_tensor(p_state["step"]):
+                        step_val = float(p_state["step"])
+                        p_state["step"] = torch.tensor(
+                            step_val, dtype=_get_scalar_dtype()
+                        )
+                    if not torch.is_tensor(p_state["mu_product"]):
+                        mu_prod_val = float(p_state["mu_product"])
+                        p_state["mu_product"] = torch.tensor(
+                            mu_prod_val, dtype=_get_scalar_dtype()
+                        )
 
     def _init_group(
         self,
@@ -116,7 +119,7 @@ class Adam(Optimizer):
         grads: List[torch.Tensor],
         exp_avgs: List[torch.Tensor],
         exp_avg_sqs: List[torch.Tensor],
-        max_exp_avg_sqs: List[torch.Tensor],
+        mu_products: List[torch.Tensor],
         state_steps: List[torch.Tensor],
     ):
         """Initializes the state for each parameter group.
@@ -128,15 +131,13 @@ class Adam(Optimizer):
             grads: List to store gradients of the parameters.
             exp_avgs: List to store exponential moving averages of gradients.
             exp_avg_sqs: List to store exponential moving averages of squared gradients.
-            max_exp_avg_sqs: List to store maximum exponential moving averages of squared gradients.
+            mu_products: List to store the running products of the momentum coefficients.
             state_steps: List to store the step count for each parameter.
         """
         for p in group["params"]:
             if p.grad is not None:
                 if p.grad.is_sparse:
-                    raise RuntimeError(
-                        "Adam does not support sparse gradients, please consider SparseAdam instead"
-                    )
+                    raise RuntimeError("NAdam does not support sparse gradients")
                 params_with_grad.append(p)
                 grads.append(p.grad)
 
@@ -144,6 +145,7 @@ class Adam(Optimizer):
                 # Lazy state initialization
                 if len(state) == 0:
                     state["step"] = torch.tensor(0.0, dtype=_get_scalar_dtype())
+                    state["mu_product"] = torch.tensor(1.0, dtype=_get_scalar_dtype())
                     # Exponential moving average of gradient values
                     state["exp_avg"] = torch.zeros_like(
                         p, memory_format=torch.preserve_format
@@ -152,16 +154,10 @@ class Adam(Optimizer):
                     state["exp_avg_sq"] = torch.zeros_like(
                         p, memory_format=torch.preserve_format
                     )
-                    if group["amsgrad"]:
-                        # Maintains max of all exp. moving avg. of sq. grad. values
-                        state["max_exp_avg_sq"] = torch.zeros_like(
-                            p, memory_format=torch.preserve_format
-                        )
 
                 exp_avgs.append(state["exp_avg"])
                 exp_avg_sqs.append(state["exp_avg_sq"])
-                if group["amsgrad"]:
-                    max_exp_avg_sqs.append(state["max_exp_avg_sq"])
+                mu_products.append(state["mu_product"])
                 state_steps.append(state["step"])
 
     @torch.no_grad()
@@ -184,7 +180,7 @@ class Adam(Optimizer):
             grads: List[torch.Tensor] = []
             exp_avgs: List[torch.Tensor] = []
             exp_avg_sqs: List[torch.Tensor] = []
-            max_exp_avg_sqs: List[torch.Tensor] = []
+            mu_products: List[torch.Tensor] = []
             state_steps: List[torch.Tensor] = []
             beta1, beta2 = group["betas"]
 
@@ -194,22 +190,22 @@ class Adam(Optimizer):
                 grads,
                 exp_avgs,
                 exp_avg_sqs,
-                max_exp_avg_sqs,
+                mu_products,
                 state_steps,
             )
 
-            adam(
+            nadam(
                 params_with_grad,
                 grads,
                 exp_avgs,
                 exp_avg_sqs,
-                max_exp_avg_sqs,
+                mu_products,
                 state_steps,
-                amsgrad=group["amsgrad"],
                 beta1=beta1,
                 beta2=beta2,
                 lr=group["lr"],
                 weight_decay=group["weight_decay"],
+                momentum_decay=group["momentum_decay"],
                 eps=group["eps"],
                 maximize=group["maximize"],
                 decoupled_weight_decay=group["decoupled_weight_decay"],
@@ -218,72 +214,68 @@ class Adam(Optimizer):
         return loss
 
 
-def adam(
+def nadam(
     params: List[torch.Tensor],
     grads: List[torch.Tensor],
     exp_avgs: List[torch.Tensor],
     exp_avg_sqs: List[torch.Tensor],
-    max_exp_avg_sqs: List[torch.Tensor],
+    mu_products: List[torch.Tensor],
     state_steps: List[torch.Tensor],
+    decoupled_weight_decay: bool = False,
     foreach: Optional[bool] = None,
     capturable: bool = False,
     differentiable: bool = False,
-    fused: Optional[bool] = None,
-    grad_scale: Optional[torch.Tensor] = None,
-    found_inf: Optional[torch.Tensor] = None,
     has_complex: bool = False,
-    decoupled_weight_decay: bool = False,
+    maximize: bool = False,
     *,
-    amsgrad: bool,
     beta1: Union[torch.Tensor, float],
     beta2: Union[torch.Tensor, float],
     lr: Union[float, torch.Tensor],
     weight_decay: float,
+    momentum_decay: float,
     eps: float,
-    maximize: bool,
 ):
-    """Functional API that performs Adam algorithm computation.
+    """Functional API that performs NAdam algorithm computation.
 
-    See `roundpipe.optim.Adam` for details.
+    See `roundpipe.optim.NAdam` for details.
     """
     assert not capturable, "capturable=True is not supported."
     assert not differentiable, "differentiable=True is not supported."
-    if fused is not None:
-        warnings.warn(
-            "The fused option is not supported and will be ignored.", UserWarning
-        )
     if foreach is not None:
         warnings.warn(
             "The foreach option is not supported and will be ignored.", UserWarning
         )
-    assert (
-        grad_scale is None and found_inf is None
-    ), "integrated grad scaling is not supported."
 
     lr, beta1, beta2 = float(lr), float(beta1), float(beta2)
-    for tensor_list in (params, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs):
+    weight_decay, momentum_decay, eps = (
+        float(weight_decay),
+        float(momentum_decay),
+        float(eps),
+    )
+
+    for tensor_list in (params, grads, exp_avgs, exp_avg_sqs):
         for i, t in enumerate(tensor_list):
             if torch.is_complex(t):
                 tensor_list[i] = t = torch.view_as_real(t)
-            assert t.is_cpu, "RoundPipe Adam only supports CPU tensors."
+            assert t.is_cpu, "RoundPipe NAdam only supports CPU tensors."
             assert (
                 t.dtype is torch.float32
-            ), "RoundPipe Adam only supports float32 tensors."
+            ), "RoundPipe NAdam only supports float32 tensors."
             assert t.is_contiguous(), "All tensors must be contiguous."
 
-    adam_kernel = get_optim_function("adam")
-    adam_kernel(
+    nadam_kernel = get_optim_function("nadam")
+    nadam_kernel(
         params,
         grads,
         exp_avgs,
         exp_avg_sqs,
-        max_exp_avg_sqs,
+        mu_products,
         state_steps,
-        amsgrad,
         beta1,
         beta2,
         lr,
         weight_decay,
+        momentum_decay,
         eps,
         maximize,
         decoupled_weight_decay,

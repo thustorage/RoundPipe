@@ -7,35 +7,39 @@ template <bool amsgrad, bool maximize, bool zero_weight_decay,
           bool decoupled_weight_decay>
 void adam_kernel(float *__restrict params, const float *__restrict grads,
                  float *__restrict exp_avg, float *__restrict exp_avg_sq,
-                 float *__restrict max_exp_avg_sq, float lr, float beta1, float beta2,
-                 float eps, float weight_decay, int64_t param_size, int64_t step) {
-    float one_beta1 = 1.0f - beta1;
-    float one_beta2 = 1.0f - beta2;
-    float bias_correction1 = 1.0f - pow(beta1, step);
-    float bias_correction2 = 1.0f - pow(beta2, step);
-    float one_lr_weight_decay = 1.0f - lr * weight_decay;
-    float step_size = lr / bias_correction1;
-    float div_bias_correction2 = 1.0f / bias_correction2;
+                 float *__restrict max_exp_avg_sq, double lr, double beta1,
+                 double beta2, float f_eps, double weight_decay, int64_t param_size,
+                 int64_t step) {
+    double bias_correction1 = 1.0 - pow(beta1, step);
+    double bias_correction2 = 1.0 - pow(beta2, step);
+    float f_beta1 = beta1;
+    float f_one_beta1 = 1.0 - beta1;
+    float f_beta2 = beta2;
+    float f_one_beta2 = 1.0 - beta2;
+    float f_weight_decay = weight_decay;
+    float f_one_lr_weight_decay = 1.0 - lr * weight_decay;
+    float f_step_size = lr / bias_correction1;
+    float f_div_bias_correction2 = 1.0 / bias_correction2;
 
     for (int64_t i = 0; i < param_size; ++i) {
         float grad = !maximize ? grads[i] : -grads[i];
         if (!zero_weight_decay) {
             if (decoupled_weight_decay) {
-                params[i] *= one_lr_weight_decay;
+                params[i] *= f_one_lr_weight_decay;
             } else {
-                grad += weight_decay * params[i];
+                grad += f_weight_decay * params[i];
             }
         }
-        exp_avg[i] = beta1 * exp_avg[i] + one_beta1 * grad;
-        exp_avg_sq[i] = beta2 * exp_avg_sq[i] + one_beta2 * grad * grad;
+        exp_avg[i] = f_beta1 * exp_avg[i] + f_one_beta1 * grad;
+        exp_avg_sq[i] = f_beta2 * exp_avg_sq[i] + f_one_beta2 * grad * grad;
         float denom;
         if (amsgrad) {
             max_exp_avg_sq[i] = max(max_exp_avg_sq[i], exp_avg_sq[i]);
-            denom = sqrt(max_exp_avg_sq[i] * div_bias_correction2) + eps;
+            denom = sqrt(max_exp_avg_sq[i] * f_div_bias_correction2) + f_eps;
         } else {
-            denom = sqrt(exp_avg_sq[i] * div_bias_correction2) + eps;
+            denom = sqrt(exp_avg_sq[i] * f_div_bias_correction2) + f_eps;
         }
-        params[i] -= step_size * exp_avg[i] / denom;
+        params[i] -= f_step_size * exp_avg[i] / denom;
     }
 }
 
@@ -51,8 +55,9 @@ void adam_kernel(bool current_bool, Args... args) {
 
 void adam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
           vector<Tensor> exp_avg_sq, vector<Tensor> max_exp_avg_sq,
-          vector<int64_t> step_int, bool amsgrad, float beta1, float beta2, float lr,
-          float weight_decay, float eps, bool maximize, bool decoupled_weight_decay) {
+          vector<Tensor> state_steps, bool amsgrad, double beta1, double beta2,
+          double lr, double weight_decay, double eps, bool maximize,
+          bool decoupled_weight_decay) {
     vector<int64_t> numel(params.size());
     vector<float *> params_ptr(params.size());
     vector<const float *> grads_ptr(params.size());
@@ -70,6 +75,7 @@ void adam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
         } else {
             max_exp_avg_sq_ptr[i] = nullptr;
         }
+        state_steps[i].add_(1);
     }
 #pragma omp parallel
     {
@@ -79,11 +85,11 @@ void adam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
             int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
             int64_t offset =
                 (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
-            adam_kernel(amsgrad, maximize, weight_decay == 0.0f, decoupled_weight_decay,
+            adam_kernel(amsgrad, maximize, weight_decay == 0.0, decoupled_weight_decay,
                         params_ptr[i] + offset, grads_ptr[i] + offset,
                         exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset,
                         max_exp_avg_sq_ptr[i] + offset, lr, beta1, beta2, eps,
-                        weight_decay, block_size, step_int[i]);
+                        weight_decay, block_size, state_steps[i].item<int64_t>());
         }
     }
 }

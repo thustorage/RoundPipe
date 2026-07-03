@@ -5,25 +5,25 @@ using namespace torch;
 
 template <bool maximize, bool zero_weight_decay, bool has_momentum, bool nesterov>
 void sgd_kernel(float *__restrict params, const float *__restrict grads,
-                float *__restrict momentum_buffer, float lr, float momentum,
-                float weight_decay, float one_minus_dampening, int64_t param_size) {
+                float *__restrict momentum_buffer, float f_lr, float f_momentum,
+                float f_weight_decay, float f_one_minus_dampening, int64_t param_size) {
     for (int64_t i = 0; i < param_size; ++i) {
         float grad = !maximize ? grads[i] : -grads[i];
         if (!zero_weight_decay) {
-            grad += weight_decay * params[i];
+            grad += f_weight_decay * params[i];
         }
         if (has_momentum) {
             // On the first step the buffer is zero and one_minus_dampening is 1, so
             // buf = grad, matching PyTorch (the first momentum is not damped).
-            float buf = momentum * momentum_buffer[i] + one_minus_dampening * grad;
+            float buf = f_momentum * momentum_buffer[i] + f_one_minus_dampening * grad;
             momentum_buffer[i] = buf;
             if (nesterov) {
-                grad += momentum * buf;
+                grad += f_momentum * buf;
             } else {
                 grad = buf;
             }
         }
-        params[i] -= lr * grad;
+        params[i] -= f_lr * grad;
     }
 }
 
@@ -38,9 +38,9 @@ void sgd_kernel(bool current_bool, Args... args) {
 }
 
 void sgd(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> momentum_buffer,
-         vector<int64_t> is_first_step, float lr, float momentum, float dampening,
-         float weight_decay, bool nesterov, bool maximize) {
-    bool has_momentum = momentum != 0.0f;
+         vector<int64_t> is_first_step, double lr, double momentum, double dampening,
+         double weight_decay, bool nesterov, bool maximize) {
+    bool has_momentum = momentum != 0.0;
     vector<int64_t> numel(params.size());
     vector<float *> params_ptr(params.size());
     vector<const float *> grads_ptr(params.size());
@@ -63,8 +63,8 @@ void sgd(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> momentum_bu
             int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
             int64_t offset =
                 (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
-            float one_minus_dampening = is_first_step[i] ? 1.0f : (1.0f - dampening);
-            sgd_kernel(maximize, weight_decay == 0.0f, has_momentum, nesterov,
+            double one_minus_dampening = is_first_step[i] ? 1.0 : (1.0 - dampening);
+            sgd_kernel(maximize, weight_decay == 0.0, has_momentum, nesterov,
                        params_ptr[i] + offset, grads_ptr[i] + offset,
                        momentum_buffer_ptr[i] + offset, lr, momentum, weight_decay,
                        one_minus_dampening, block_size);

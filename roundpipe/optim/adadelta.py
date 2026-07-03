@@ -8,54 +8,39 @@ from torch.optim.optimizer import Optimizer, ParamsT, _get_scalar_dtype
 from .optim_builder import get_optim_function, load_optim_function
 
 
-class Adam(Optimizer):
-    """Implements Adam algorithm with fp32 stepping on CPU."""
+class Adadelta(Optimizer):
+    """Implements Adadelta algorithm with fp32 stepping on CPU."""
 
     def __init__(
         self,
         params: ParamsT,
-        lr: Union[float, torch.Tensor] = 1e-3,
-        betas: Tuple[Union[float, torch.Tensor], Union[float, torch.Tensor]] = (
-            0.9,
-            0.999,
-        ),
-        eps: float = 1e-8,
+        lr: Union[float, torch.Tensor] = 1.0,
+        rho: float = 0.9,
+        eps: float = 1e-6,
         weight_decay: float = 0.0,
-        amsgrad: bool = False,
-        *,
         foreach: Optional[bool] = None,
-        maximize: bool = False,
+        *,
         capturable: bool = False,
+        maximize: bool = False,
         differentiable: bool = False,
-        fused: Optional[bool] = None,
-        decoupled_weight_decay: bool = False,
     ):
         """
         Args:
             params: iterable of parameters or named_parameters to optimize or
                 iterable of dicts defining parameter groups. When using named_parameters,
                 all parameters in all groups should be named
-            lr: learning rate.
-            betas: coefficients used for computing running averages of gradient and its square
+            lr: coefficient that scales delta before it is applied to the parameters
+            rho: coefficient used for computing a running average of squared gradients
             eps: term added to the denominator to improve numerical stability
-            weight_decay: weight decay coefficient
-            amsgrad: whether to use the AMSGrad variant of this algorithm from the paper
-                `On the Convergence of Adam and Beyond`
+            weight_decay: weight decay (L2 penalty)
             maximize: maximize the objective with respect to the params, instead of minimizing
-            decoupled_weight_decay: if True, this optimizer is equivalent to AdamW and the
-                algorithm will not accumulate weight decay in the momentum nor variance.
-            foreach: Compatible placeholder for PyTorch's Adam optimizer.
-            capturable: Compatible placeholder for PyTorch's Adam optimizer.
-            differentiable: Compatible placeholder for PyTorch's Adam optimizer.
-            fused: Compatible placeholder for PyTorch's Adam optimizer.
+            foreach: Compatible placeholder for PyTorch's Adadelta optimizer.
+            capturable: Compatible placeholder for PyTorch's Adadelta optimizer.
+            differentiable: Compatible placeholder for PyTorch's Adadelta optimizer.
         """
-        load_optim_function("adam")
+        load_optim_function("adadelta")
         assert capturable is False, "capturable=True is not supported."
         assert differentiable is False, "differentiable=True is not supported."
-        if fused is not None:
-            warnings.warn(
-                "The fused option is not supported and will be ignored.", UserWarning
-            )
         if foreach is not None:
             warnings.warn(
                 "The foreach option is not supported and will be ignored.", UserWarning
@@ -63,30 +48,22 @@ class Adam(Optimizer):
 
         if isinstance(lr, torch.Tensor) and lr.numel() != 1:
             raise ValueError("Tensor lr must be 1-element")
-        if isinstance(betas[0], torch.Tensor) and betas[0].numel() != 1:
-            raise ValueError("Tensor betas[0] must be 1-element")
-        if isinstance(betas[1], torch.Tensor) and betas[1].numel() != 1:
-            raise ValueError("Tensor betas[1] must be 1-element")
 
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
+        if not 0.0 <= rho <= 1.0:
+            raise ValueError(f"Invalid rho value: {rho}")
         if not 0.0 <= eps:
             raise ValueError(f"Invalid epsilon value: {eps}")
-        if not 0.0 <= betas[0] < 1.0:
-            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
-        if not 0.0 <= betas[1] < 1.0:
-            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
         if not 0.0 <= weight_decay:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
         defaults = dict(
             lr=lr,
-            betas=betas,
+            rho=rho,
             eps=eps,
             weight_decay=weight_decay,
-            amsgrad=amsgrad,
             maximize=maximize,
-            decoupled_weight_decay=decoupled_weight_decay,
         )
         super().__init__(params, defaults)
 
@@ -100,9 +77,7 @@ class Adam(Optimizer):
         """
         super().__setstate__(state)
         for group in self.param_groups:
-            group.setdefault("amsgrad", False)
             group.setdefault("maximize", False)
-            group.setdefault("decoupled_weight_decay", False)
             for p in group["params"]:
                 p_state = self.state.get(p, [])
                 if len(p_state) != 0 and not torch.is_tensor(p_state["step"]):
@@ -114,9 +89,8 @@ class Adam(Optimizer):
         group: Dict[str, Any],
         params_with_grad: List[torch.Tensor],
         grads: List[torch.Tensor],
-        exp_avgs: List[torch.Tensor],
-        exp_avg_sqs: List[torch.Tensor],
-        max_exp_avg_sqs: List[torch.Tensor],
+        square_avgs: List[torch.Tensor],
+        acc_deltas: List[torch.Tensor],
         state_steps: List[torch.Tensor],
     ):
         """Initializes the state for each parameter group.
@@ -126,17 +100,14 @@ class Adam(Optimizer):
             group: The parameter group to initialize.
             params_with_grad: List to store parameters with gradients.
             grads: List to store gradients of the parameters.
-            exp_avgs: List to store exponential moving averages of gradients.
-            exp_avg_sqs: List to store exponential moving averages of squared gradients.
-            max_exp_avg_sqs: List to store maximum exponential moving averages of squared gradients.
+            square_avgs: List to store running averages of squared gradients.
+            acc_deltas: List to store running averages of squared parameter updates.
             state_steps: List to store the step count for each parameter.
         """
         for p in group["params"]:
             if p.grad is not None:
                 if p.grad.is_sparse:
-                    raise RuntimeError(
-                        "Adam does not support sparse gradients, please consider SparseAdam instead"
-                    )
+                    raise RuntimeError("Adadelta does not support sparse gradients")
                 params_with_grad.append(p)
                 grads.append(p.grad)
 
@@ -144,24 +115,17 @@ class Adam(Optimizer):
                 # Lazy state initialization
                 if len(state) == 0:
                     state["step"] = torch.tensor(0.0, dtype=_get_scalar_dtype())
-                    # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(
+                    # Running average of squared gradient values
+                    state["square_avg"] = torch.zeros_like(
                         p, memory_format=torch.preserve_format
                     )
-                    # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros_like(
+                    # Running average of squared parameter update values
+                    state["acc_delta"] = torch.zeros_like(
                         p, memory_format=torch.preserve_format
                     )
-                    if group["amsgrad"]:
-                        # Maintains max of all exp. moving avg. of sq. grad. values
-                        state["max_exp_avg_sq"] = torch.zeros_like(
-                            p, memory_format=torch.preserve_format
-                        )
 
-                exp_avgs.append(state["exp_avg"])
-                exp_avg_sqs.append(state["exp_avg_sq"])
-                if group["amsgrad"]:
-                    max_exp_avg_sqs.append(state["max_exp_avg_sq"])
+                square_avgs.append(state["square_avg"])
+                acc_deltas.append(state["acc_delta"])
                 state_steps.append(state["step"])
 
     @torch.no_grad()
@@ -182,109 +146,84 @@ class Adam(Optimizer):
         for group in self.param_groups:
             params_with_grad: List[torch.Tensor] = []
             grads: List[torch.Tensor] = []
-            exp_avgs: List[torch.Tensor] = []
-            exp_avg_sqs: List[torch.Tensor] = []
-            max_exp_avg_sqs: List[torch.Tensor] = []
+            square_avgs: List[torch.Tensor] = []
+            acc_deltas: List[torch.Tensor] = []
             state_steps: List[torch.Tensor] = []
-            beta1, beta2 = group["betas"]
 
             self._init_group(
-                group,
-                params_with_grad,
-                grads,
-                exp_avgs,
-                exp_avg_sqs,
-                max_exp_avg_sqs,
-                state_steps,
+                group, params_with_grad, grads, square_avgs, acc_deltas, state_steps
             )
 
-            adam(
+            adadelta(
                 params_with_grad,
                 grads,
-                exp_avgs,
-                exp_avg_sqs,
-                max_exp_avg_sqs,
+                square_avgs,
+                acc_deltas,
                 state_steps,
-                amsgrad=group["amsgrad"],
-                beta1=beta1,
-                beta2=beta2,
                 lr=group["lr"],
-                weight_decay=group["weight_decay"],
+                rho=group["rho"],
                 eps=group["eps"],
+                weight_decay=group["weight_decay"],
                 maximize=group["maximize"],
-                decoupled_weight_decay=group["decoupled_weight_decay"],
             )
 
         return loss
 
 
-def adam(
+def adadelta(
     params: List[torch.Tensor],
     grads: List[torch.Tensor],
-    exp_avgs: List[torch.Tensor],
-    exp_avg_sqs: List[torch.Tensor],
-    max_exp_avg_sqs: List[torch.Tensor],
+    square_avgs: List[torch.Tensor],
+    acc_deltas: List[torch.Tensor],
     state_steps: List[torch.Tensor],
-    foreach: Optional[bool] = None,
     capturable: bool = False,
+    foreach: Optional[bool] = None,
     differentiable: bool = False,
-    fused: Optional[bool] = None,
-    grad_scale: Optional[torch.Tensor] = None,
-    found_inf: Optional[torch.Tensor] = None,
     has_complex: bool = False,
-    decoupled_weight_decay: bool = False,
     *,
-    amsgrad: bool,
-    beta1: Union[torch.Tensor, float],
-    beta2: Union[torch.Tensor, float],
     lr: Union[float, torch.Tensor],
-    weight_decay: float,
+    rho: float,
     eps: float,
+    weight_decay: float,
     maximize: bool,
 ):
-    """Functional API that performs Adam algorithm computation.
+    """Functional API that performs Adadelta algorithm computation.
 
-    See `roundpipe.optim.Adam` for details.
+    See `roundpipe.optim.Adadelta` for details.
     """
     assert not capturable, "capturable=True is not supported."
     assert not differentiable, "differentiable=True is not supported."
-    if fused is not None:
-        warnings.warn(
-            "The fused option is not supported and will be ignored.", UserWarning
-        )
     if foreach is not None:
         warnings.warn(
             "The foreach option is not supported and will be ignored.", UserWarning
         )
-    assert (
-        grad_scale is None and found_inf is None
-    ), "integrated grad scaling is not supported."
 
-    lr, beta1, beta2 = float(lr), float(beta1), float(beta2)
-    for tensor_list in (params, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs):
+    lr, rho, eps, weight_decay = (
+        float(lr),
+        float(rho),
+        float(eps),
+        float(weight_decay),
+    )
+    for tensor_list in (params, grads, square_avgs, acc_deltas):
         for i, t in enumerate(tensor_list):
             if torch.is_complex(t):
                 tensor_list[i] = t = torch.view_as_real(t)
-            assert t.is_cpu, "RoundPipe Adam only supports CPU tensors."
+            assert t.is_cpu, "RoundPipe Adadelta only supports CPU tensors."
             assert (
                 t.dtype is torch.float32
-            ), "RoundPipe Adam only supports float32 tensors."
+            ), "RoundPipe Adadelta only supports float32 tensors."
             assert t.is_contiguous(), "All tensors must be contiguous."
 
-    adam_kernel = get_optim_function("adam")
-    adam_kernel(
+    adadelta_kernel = get_optim_function("adadelta")
+    adadelta_kernel(
         params,
         grads,
-        exp_avgs,
-        exp_avg_sqs,
-        max_exp_avg_sqs,
+        square_avgs,
+        acc_deltas,
         state_steps,
-        amsgrad,
-        beta1,
-        beta2,
         lr,
-        weight_decay,
+        rho,
         eps,
+        weight_decay,
         maximize,
-        decoupled_weight_decay,
     )
