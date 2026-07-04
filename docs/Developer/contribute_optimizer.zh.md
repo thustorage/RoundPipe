@@ -46,35 +46,39 @@ template <bool amsgrad, bool maximize, bool zero_weight_decay,
           bool decoupled_weight_decay>
 void adam_kernel(float *__restrict params, const float *__restrict grads,
                  float *__restrict exp_avg, float *__restrict exp_avg_sq,
-                 float *__restrict max_exp_avg_sq, float lr, float beta1, float beta2,
-                 float eps, float weight_decay, int64_t param_size, int64_t step) {
-    float one_beta1 = 1.0f - beta1;
-    float one_beta2 = 1.0f - beta2;
-    float bias_correction1 = 1.0f - powf(beta1, step);
-    float bias_correction2 = 1.0f - powf(beta2, step);
-    float one_lr_weight_decay = 1.0f - lr * weight_decay;
-    float step_size = lr / bias_correction1;
-    float div_bias_correction2 = 1.0f / bias_correction2;
+                 float *__restrict max_exp_avg_sq, double lr, double beta1,
+                 double beta2, float f_eps, double weight_decay, int64_t param_size,
+                 int64_t step) {
+    double bias_correction1 = 1.0 - pow(beta1, step);
+    double bias_correction2 = 1.0 - pow(beta2, step);
+    float f_beta1 = beta1;
+    float f_one_beta1 = 1.0 - beta1;
+    float f_beta2 = beta2;
+    float f_one_beta2 = 1.0 - beta2;
+    float f_weight_decay = weight_decay;
+    float f_one_lr_weight_decay = 1.0 - lr * weight_decay;
+    float f_step_size = lr / bias_correction1;
+    float f_div_bias_correction2 = 1.0 / bias_correction2;
 
     for (int64_t i = 0; i < param_size; ++i) {
         float grad = !maximize ? grads[i] : -grads[i];
         if (!zero_weight_decay) {
             if (decoupled_weight_decay) {
-                params[i] *= one_lr_weight_decay;
+                params[i] *= f_one_lr_weight_decay;
             } else {
-                grad += weight_decay * params[i];
+                grad += f_weight_decay * params[i];
             }
         }
-        exp_avg[i] = beta1 * exp_avg[i] + one_beta1 * grad;
-        exp_avg_sq[i] = beta2 * exp_avg_sq[i] + one_beta2 * grad * grad;
+        exp_avg[i] = f_beta1 * exp_avg[i] + f_one_beta1 * grad;
+        exp_avg_sq[i] = f_beta2 * exp_avg_sq[i] + f_one_beta2 * grad * grad;
         float denom;
         if (amsgrad) {
-            max_exp_avg_sq[i] = fmaxf(max_exp_avg_sq[i], exp_avg_sq[i]);
-            denom = sqrtf(max_exp_avg_sq[i] * div_bias_correction2) + eps;
+            max_exp_avg_sq[i] = max(max_exp_avg_sq[i], exp_avg_sq[i]);
+            denom = sqrt(max_exp_avg_sq[i] * f_div_bias_correction2) + f_eps;
         } else {
-            denom = sqrtf(exp_avg_sq[i] * div_bias_correction2) + eps;
+            denom = sqrt(exp_avg_sq[i] * f_div_bias_correction2) + f_eps;
         }
-        params[i] -= step_size * exp_avg[i] / denom;
+        params[i] -= f_step_size * exp_avg[i] / denom;
     }
 }
 ```
@@ -82,7 +86,9 @@ void adam_kernel(float *__restrict params, const float *__restrict grads,
 为了获得最佳性能，内层循环做了以下优化：
 
 - **所有循环不变量都被提到循环外。** 偏差修正、`step_size` 以及各类倒数都只计算一次。
-  注意到 `div_bias_correction2` 是一个倒数，因此循环内使用乘法而非除法。
+  注意到 `f_div_bias_correction2` 是一个倒数，因此循环内使用乘法而非除法。
+- **标量以 `double` 计算，再一次性收窄。** 系数先以 `double` 计算，从而与 PyTorch 的标量运算保持一致，
+  再在进入循环前一次性转换为 `float`，避免反复转换。
 - **所有分支放入模板参数。** 由于 `amsgrad`、`maximize`、`zero_weight_decay`
   和 `decoupled_weight_decay` 都是编译期常量，上面的每个 `if` 都在编译期就被求值，自动清除无用的
   分支。剩下的只有算术运算，编译器可以将其自动向量化为 SIMD。
@@ -120,11 +126,11 @@ void adam_kernel(bool current_bool, Args... args) {
         int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
         int64_t offset =
             (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
-        adam_kernel(amsgrad, maximize, weight_decay == 0.0f, decoupled_weight_decay,
+        adam_kernel(amsgrad, maximize, weight_decay == 0.0, decoupled_weight_decay,
                     params_ptr[i] + offset, grads_ptr[i] + offset,
                     exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset,
                     max_exp_avg_sq_ptr[i] + offset, lr, beta1, beta2, eps,
-                    weight_decay, block_size, step_int[i]);
+                    weight_decay, block_size, state_steps[i].item<int64_t>());
     }
 }
 ```
@@ -141,14 +147,21 @@ void adam_kernel(bool current_bool, Args... args) {
 文件末尾用 pybind11 绑定该函数，并释放 GIL：
 
 ```cpp
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+#if PYBIND11_VERSION_HEX >= 0x020D0000 // pybind11 >= 2.13
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m, py::mod_gil_not_used())
+#else
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+#endif
+{
     m.def("adam", &adam, py::call_guard<py::gil_scoped_release>(),
           "Adam optimizer step implementation in C++");
 }
 ```
 
 `py::gil_scoped_release` 在 kernel 执行期间释放 GIL，因此更新不会在
-运行时阻塞其他 Python 线程。
+运行时阻塞其他 Python 线程。当针对 pybind11 ≥ 2.13 构建时，版本判断还会通过
+`py::mod_gil_not_used()` 把该模块标记为不依赖 GIL，从而可以加载进自由线程（无 GIL）的
+CPython 而不会强制重新启用 GIL；更旧的 pybind11 则回退到普通宏。
 
 ## 第 2 层：构建与缓存 kernel
 
@@ -194,7 +207,7 @@ Adam([p]).step()"
 查找指向 `adam.cpp` 中内层 `for` 循环的一行：
 
 ```
-adam.cpp:20:29: optimized: loop vectorized using 32 byte vectors
+adam.cpp:24:27: optimized: loop vectorized using 32 byte vectors
 ```
 
 `32 byte vectors` 表示使用了 256 位的 AVX；在支持 AVX-512 的主机上你会看到 `64 byte vectors`。
@@ -221,8 +234,8 @@ def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), ...):
 ```
 
 **2. 像 PyTorch 一样管理状态。** `_init_group` 惰性地分配 `step`、`exp_avg`、`exp_avg_sq`
-（以及用于 AMSGrad 的 `max_exp_avg_sq`），并把每个参数的张量收集进扁平列表。`step()` 遍历
-各参数组并调用函数式的 `adam(...)`，保持与 PyTorch 完全一致。
+（以及用于 AMSGrad 的 `max_exp_avg_sq`），并把每个参数的张量收集并传入，由 C++ 中的 kernel 负责推进。
+`step()` 遍历各参数组并调用函数式的`adam(...)`，保持与 PyTorch 完全一致。
 
 **3. 先校验，再调用 kernel。** 函数式的 `adam(...)` 调用 C++ 实现前先检查输入是否满足要求，
 通常包括：
@@ -250,8 +263,10 @@ __all__ = ["Adam"]
 
 ## 检查清单
 
-- `csrc/<name>.cpp`：模板化的无分支内层循环、`__restrict` 指针、循环不变量外提、跨线程的
-  OpenMP 按块切分。
+- `csrc/<name>.cpp`：模板化的无分支内层循环、`__restrict` 指针、循环不变量外提（以 `double`
+  计算，一次性转换为 `float`）、跨线程的 OpenMP 按块切分。
+- 在串行的准备阶段用 C++ 推进 step（`state_steps[i].add_(1)`），并把任何原地的状态修改也放在
+  该阶段。
 - pybind 绑定名恰好为 `<name>`，并带 `py::gil_scoped_release`。
 - 通过查看 `vec.log` 确认内层循环已向量化（见[验证内层循环已向量化](#verify-vectorization)）。
 - `<name>.py`：与 PyTorch 兼容的 API、`__init__` 中的 `load_optim_function`、CPU/fp32/连续

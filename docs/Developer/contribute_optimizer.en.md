@@ -64,35 +64,39 @@ template <bool amsgrad, bool maximize, bool zero_weight_decay,
           bool decoupled_weight_decay>
 void adam_kernel(float *__restrict params, const float *__restrict grads,
                  float *__restrict exp_avg, float *__restrict exp_avg_sq,
-                 float *__restrict max_exp_avg_sq, float lr, float beta1, float beta2,
-                 float eps, float weight_decay, int64_t param_size, int64_t step) {
-    float one_beta1 = 1.0f - beta1;
-    float one_beta2 = 1.0f - beta2;
-    float bias_correction1 = 1.0f - powf(beta1, step);
-    float bias_correction2 = 1.0f - powf(beta2, step);
-    float one_lr_weight_decay = 1.0f - lr * weight_decay;
-    float step_size = lr / bias_correction1;
-    float div_bias_correction2 = 1.0f / bias_correction2;
+                 float *__restrict max_exp_avg_sq, double lr, double beta1,
+                 double beta2, float f_eps, double weight_decay, int64_t param_size,
+                 int64_t step) {
+    double bias_correction1 = 1.0 - pow(beta1, step);
+    double bias_correction2 = 1.0 - pow(beta2, step);
+    float f_beta1 = beta1;
+    float f_one_beta1 = 1.0 - beta1;
+    float f_beta2 = beta2;
+    float f_one_beta2 = 1.0 - beta2;
+    float f_weight_decay = weight_decay;
+    float f_one_lr_weight_decay = 1.0 - lr * weight_decay;
+    float f_step_size = lr / bias_correction1;
+    float f_div_bias_correction2 = 1.0 / bias_correction2;
 
     for (int64_t i = 0; i < param_size; ++i) {
         float grad = !maximize ? grads[i] : -grads[i];
         if (!zero_weight_decay) {
             if (decoupled_weight_decay) {
-                params[i] *= one_lr_weight_decay;
+                params[i] *= f_one_lr_weight_decay;
             } else {
-                grad += weight_decay * params[i];
+                grad += f_weight_decay * params[i];
             }
         }
-        exp_avg[i] = beta1 * exp_avg[i] + one_beta1 * grad;
-        exp_avg_sq[i] = beta2 * exp_avg_sq[i] + one_beta2 * grad * grad;
+        exp_avg[i] = f_beta1 * exp_avg[i] + f_one_beta1 * grad;
+        exp_avg_sq[i] = f_beta2 * exp_avg_sq[i] + f_one_beta2 * grad * grad;
         float denom;
         if (amsgrad) {
-            max_exp_avg_sq[i] = fmaxf(max_exp_avg_sq[i], exp_avg_sq[i]);
-            denom = sqrtf(max_exp_avg_sq[i] * div_bias_correction2) + eps;
+            max_exp_avg_sq[i] = max(max_exp_avg_sq[i], exp_avg_sq[i]);
+            denom = sqrt(max_exp_avg_sq[i] * f_div_bias_correction2) + f_eps;
         } else {
-            denom = sqrtf(exp_avg_sq[i] * div_bias_correction2) + eps;
+            denom = sqrt(exp_avg_sq[i] * f_div_bias_correction2) + f_eps;
         }
-        params[i] -= step_size * exp_avg[i] / denom;
+        params[i] -= f_step_size * exp_avg[i] / denom;
     }
 }
 ```
@@ -100,8 +104,11 @@ void adam_kernel(float *__restrict params, const float *__restrict grads,
 For the best performance, the inner loop applies these optimizations:
 
 - **All loop-invariant work is hoisted out of the loop.** Bias corrections,
-  `step_size`, and reciprocals are computed once. Note `div_bias_correction2`
+  `step_size`, and reciprocals are computed once. Note `f_div_bias_correction2`
   is a reciprocal so the loop uses a multiply instead of a divide.
+- **Scalars are accumulated in `double`, then narrowed once.** The coefficients
+  are computed in `double` so they match PyTorch's scalar math, then converted to
+  `float` once before the loop, avoiding repeated conversions.
 - **All branches are lifted into template parameters.** Because `amsgrad`,
   `maximize`, `zero_weight_decay`, and `decoupled_weight_decay` are compile-time
   constants, every `if` above is evaluated at compile time, automatically
@@ -144,11 +151,11 @@ raw pointers, and runs one OpenMP parallel region:
         int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
         int64_t offset =
             (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
-        adam_kernel(amsgrad, maximize, weight_decay == 0.0f, decoupled_weight_decay,
+        adam_kernel(amsgrad, maximize, weight_decay == 0.0, decoupled_weight_decay,
                     params_ptr[i] + offset, grads_ptr[i] + offset,
                     exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset,
                     max_exp_avg_sq_ptr[i] + offset, lr, beta1, beta2, eps,
-                    weight_decay, block_size, step_int[i]);
+                    weight_decay, block_size, state_steps[i].item<int64_t>());
     }
 }
 ```
@@ -168,14 +175,23 @@ SIMD-friendly.
 The bottom of the file binds the function with pybind11 and releases the GIL:
 
 ```cpp
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+#if PYBIND11_VERSION_HEX >= 0x020D0000 // pybind11 >= 2.13
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m, py::mod_gil_not_used())
+#else
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+#endif
+{
     m.def("adam", &adam, py::call_guard<py::gil_scoped_release>(),
           "Adam optimizer step implementation in C++");
 }
 ```
 
 `py::gil_scoped_release` drops the GIL for the duration of the kernel, so the
-update doesn't block other Python threads while it runs.
+update doesn't block other Python threads while it runs. The version guard
+additionally marks the module as GIL-independent via `py::mod_gil_not_used()`
+when built against pybind11 ≥ 2.13, so it can load into free-threaded (no-GIL)
+CPython without forcing the GIL back on; older pybind11 falls back to the plain
+macro.
 
 ## Layer 2: Building and Caching the Kernel
 
@@ -224,7 +240,7 @@ Adam([p]).step()"
 Look for a line pointing at the inner `for` loop in `adam.cpp`:
 
 ```
-adam.cpp:20:29: optimized: loop vectorized using 32 byte vectors
+adam.cpp:24:27: optimized: loop vectorized using 32 byte vectors
 ```
 
 `32 byte vectors` means 256-bit AVX; on an AVX-512 host you'll see `64 byte
@@ -255,8 +271,9 @@ def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), ...):
 
 **2. Manage state exactly like PyTorch.** `_init_group` lazily allocates
 `step`, `exp_avg`, `exp_avg_sq` (and `max_exp_avg_sq` for AMSGrad) and collects
-per-parameter tensors into flat lists. `step()` iterates parameter groups and
-calls the functional `adam(...)`, staying identical to PyTorch.
+the per-parameter tensors and passes them in, with the `step` advanced by the
+kernel in C++. `step()` iterates parameter groups and calls the functional
+`adam(...)`, staying identical to PyTorch.
 
 **3. Validate, then call the kernel.** The functional `adam()` checks that the
 inputs meet the kernel's requirements before calling the C++ implementation,
@@ -288,7 +305,10 @@ arguments and calls `run_optim` to compare against the reference.
 ## Checklist
 
 - `csrc/<name>.cpp`: templated branch-free inner loop, `__restrict` pointers,
-  loop-invariants hoisted, OpenMP block slicing across threads.
+  loop-invariants hoisted (computed in `double`, converted to `float` once),
+  OpenMP block slicing across threads.
+- Advance the step in C++ (`state_steps[i].add_(1)`) in the serial setup pass,
+  and put any in-place state mutation there too.
 - pybind binding named exactly `<name>`, with `py::gil_scoped_release`.
 - Inner loop confirmed vectorized by checking `vec.log` (see
   [Verifying That the Inner Loop Vectorized](#verify-vectorization)).
