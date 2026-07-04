@@ -4,6 +4,7 @@ and optimized for fp32 stepping on CPU.
 """
 
 from .adadelta import Adadelta
+from .adafactor import Adafactor
 from .adagrad import Adagrad
 from .adam import Adam
 from .adamax import Adamax
@@ -17,6 +18,7 @@ from .sgd import SGD
 
 __all__ = [
     "Adadelta",
+    "Adafactor",
     "Adagrad",
     "Adam",
     "Adamax",
