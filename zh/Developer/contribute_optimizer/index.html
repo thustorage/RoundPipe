@@ -83,6 +83,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#cpu" class="md-skip">
+          跳转至
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -1540,6 +1545,26 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    贡献CPU优化器
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -1557,6 +1582,191 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#roundpipe-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RoundPipe 的 CPU 优化器有什么不同
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roundpipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RoundPipe 优化器的三个层次
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-c-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        第 3 层：C++ kernel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="第 3 层：C++ kernel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        内层循环
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        把运行期开关转为编译期开关
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        跨核心并行
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kernel-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        将 kernel 暴露给 Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        第 2 层：构建与缓存 kernel
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-vectorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        验证内层循环已向量化
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="验证内层循环已向量化">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#veclog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        找到 vec.log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        阅读日志
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        第 1 层：Python 优化器类
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pytorch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        正确性：与 PyTorch 对拍
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        检查清单
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1643,6 +1853,182 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#roundpipe-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RoundPipe 的 CPU 优化器有什么不同
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roundpipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RoundPipe 优化器的三个层次
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-c-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        第 3 层：C++ kernel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="第 3 层：C++ kernel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        内层循环
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        把运行期开关转为编译期开关
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        跨核心并行
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kernel-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        将 kernel 暴露给 Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        第 2 层：构建与缓存 kernel
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-vectorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        验证内层循环已向量化
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="验证内层循环已向量化">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#veclog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        找到 vec.log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        阅读日志
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        第 1 层：Python 优化器类
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pytorch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        正确性：与 PyTorch 对拍
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        检查清单
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1662,9 +2048,228 @@
   
 
 
-  <h1>贡献CPU优化器</h1>
+<h1 id="cpu">贡献一个 CPU 优化器</h1>
+<p>本教程将带你了解 RoundPipe 如何实现高性能的 CPU 端优化器，并手把手教你如何添加自己的优化器。</p>
+<p>读完之后，你将理解构成每个 RoundPipe 优化器的三个层次、每一处性能优化背后的原因，以及如何确认你的 kernel 确实被编译成了 SIMD 指令。</p>
+<p>我们以 <code>roundpipe.optim.Adam</code> 作为示例，其代码位于 <code>roundpipe/optim/</code> 目录下。</p>
+<h2 id="roundpipe-cpu">RoundPipe 的 CPU 优化器有什么不同</h2>
+<p>RoundPipe <strong>优化器更新在 CPU 上执行</strong>，但 PyTorch 内置的优化器在 CPU 上性能较差。对于大模型，优化器可能成为拖慢训练的瓶颈。因此 RoundPipe 提供了优化过的优化器的 CPU 实现，它们具有以下优势：</p>
+<ul>
+<li><strong>针对运行主机的 CPU 编译</strong> —— 使用 <code>-march=native</code>，从而利用每一种可用的 SIMD 指令集（AVX2、AVX-512 等）。</li>
+<li><strong>热点循环中无分支</strong> —— 运行期的开关标志通过模板特化被提升到编译期，使内层循环能够干净地向量化。</li>
+<li><strong>不持有 GIL</strong> —— 绑定在执行步骤期间释放 GIL，因此一次耗时较长的更新不会阻塞其他 Python 线程。</li>
+<li><strong>可直接替换</strong> —— Python API 与 <code>torch.optim</code> 完全兼容，且计算结果与 PyTorch 数值一致。</li>
+</ul>
+<h2 id="roundpipe">RoundPipe 优化器的三个层次</h2>
+<p>每个优化器从 PyTorch 到具体实现分为三层：</p>
+<div class="highlight"><pre><span></span><code>roundpipe/optim/
+├── adam.py            # 第 1 层：Python 类 + 函数式 API（与 PyTorch 兼容）
+├── optim_builder.py   # 第 2 层：为当前主机 JIT 编译并缓存 C++ kernel
+└── csrc/
+    └── adam.cpp       # 第 3 层：OpenMP/SIMD 的 C++ kernel（真正的计算）
+</code></pre></div>
+<ol>
+<li><strong>Python 层</strong>（<code>adam.py</code>）是一个普通的 <code>torch.optim.Optimizer</code> 子类。它像 PyTorch
+   一样管理参数组和每个参数的状态，校验张量，然后把扁平的指针交给编译好的 kernel。</li>
+<li><strong>构建层</strong>（<code>optim_builder.py</code>）使用激进的、针对主机的编译选项即时（JIT）编译 C++
+   源码，并缓存结果，因此每台机器只需付出一次编译开销。</li>
+<li><strong>kernel 层</strong>（<code>csrc/adam.cpp</code>）是真正进行计算的地方，也是需要优化的部分。</li>
+</ol>
+<p>下面我们以 Adam 为例逐层剖析。</p>
+<h2 id="3-c-kernel">第 3 层：C++ kernel</h2>
+<p><code>roundpipe/optim/csrc/adam.cpp</code>由三部分组成：模板化的内层 kernel、一个把运行期布尔值转换为模板参数的辅助函数，以及暴露给 Python 的分发函数。</p>
+<h3 id="_1">内层循环</h3>
+<div class="highlight"><pre><span></span><code><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="kt">bool</span><span class="w"> </span><span class="n">amsgrad</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">maximize</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">zero_weight_decay</span><span class="p">,</span>
+<span class="w">          </span><span class="kt">bool</span><span class="w"> </span><span class="n">decoupled_weight_decay</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">adam_kernel</span><span class="p">(</span><span class="kt">float</span><span class="w"> </span><span class="o">*</span><span class="k">__restrict</span><span class="w"> </span><span class="n">params</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="o">*</span><span class="k">__restrict</span><span class="w"> </span><span class="n">grads</span><span class="p">,</span>
+<span class="w">                 </span><span class="kt">float</span><span class="w"> </span><span class="o">*</span><span class="k">__restrict</span><span class="w"> </span><span class="n">exp_avg</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="o">*</span><span class="k">__restrict</span><span class="w"> </span><span class="n">exp_avg_sq</span><span class="p">,</span>
+<span class="w">                 </span><span class="kt">float</span><span class="w"> </span><span class="o">*</span><span class="k">__restrict</span><span class="w"> </span><span class="n">max_exp_avg_sq</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">lr</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">beta1</span><span class="p">,</span>
+<span class="w">                 </span><span class="kt">double</span><span class="w"> </span><span class="n">beta2</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">f_eps</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">weight_decay</span><span class="p">,</span><span class="w"> </span><span class="kt">int64_t</span><span class="w"> </span><span class="n">param_size</span><span class="p">,</span>
+<span class="w">                 </span><span class="kt">int64_t</span><span class="w"> </span><span class="n">step</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">bias_correction1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pow</span><span class="p">(</span><span class="n">beta1</span><span class="p">,</span><span class="w"> </span><span class="n">step</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">bias_correction2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pow</span><span class="p">(</span><span class="n">beta2</span><span class="p">,</span><span class="w"> </span><span class="n">step</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_beta1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">beta1</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_one_beta1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">beta1</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_beta2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">beta2</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_one_beta2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">beta2</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_weight_decay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">weight_decay</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_one_lr_weight_decay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">lr</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">weight_decay</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_step_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">lr</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">bias_correction1</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">f_div_bias_correction2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">bias_correction2</span><span class="p">;</span>
 
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int64_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">param_size</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">float</span><span class="w"> </span><span class="n">grad</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">!</span><span class="n">maximize</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">grads</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="n">grads</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">zero_weight_decay</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">decoupled_weight_decay</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">params</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="n">f_one_lr_weight_decay</span><span class="p">;</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">grad</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">f_weight_decay</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">params</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">exp_avg</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f_beta1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">exp_avg</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">f_one_beta1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">grad</span><span class="p">;</span>
+<span class="w">        </span><span class="n">exp_avg_sq</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f_beta2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">exp_avg_sq</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">f_one_beta2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">grad</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">grad</span><span class="p">;</span>
+<span class="w">        </span><span class="kt">float</span><span class="w"> </span><span class="n">denom</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">amsgrad</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">max_exp_avg_sq</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">max_exp_avg_sq</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="w"> </span><span class="n">exp_avg_sq</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+<span class="w">            </span><span class="n">denom</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sqrt</span><span class="p">(</span><span class="n">max_exp_avg_sq</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">f_div_bias_correction2</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">f_eps</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">denom</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sqrt</span><span class="p">(</span><span class="n">exp_avg_sq</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">f_div_bias_correction2</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">f_eps</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">params</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-=</span><span class="w"> </span><span class="n">f_step_size</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">exp_avg</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">denom</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>为了获得最佳性能，内层循环做了以下优化：</p>
+<ul>
+<li><strong>所有循环不变量都被提到循环外。</strong> 偏差修正、<code>step_size</code> 以及各类倒数都只计算一次。
+  注意到 <code>f_div_bias_correction2</code> 是一个倒数，因此循环内使用乘法而非除法。</li>
+<li><strong>标量以 <code>double</code> 计算，再一次性收窄。</strong> 系数先以 <code>double</code> 计算，从而与 PyTorch 的标量运算保持一致，
+  再在进入循环前一次性转换为 <code>float</code>，避免反复转换。</li>
+<li><strong>所有分支放入模板参数。</strong> 由于 <code>amsgrad</code>、<code>maximize</code>、<code>zero_weight_decay</code>
+  和 <code>decoupled_weight_decay</code> 都是编译期常量，上面的每个 <code>if</code> 都在编译期就被求值，自动清除无用的
+  分支。剩下的只有算术运算，编译器可以将其自动向量化为 SIMD。</li>
+<li><strong><code>__restrict</code> 指针</strong>向编译器保证这些数组不会相互别名，因此编译器可以安全地
+  重排读写并进行向量化。</li>
+</ul>
+<h3 id="_2">把运行期开关转为编译期开关</h3>
+<p>我们无法直接用运行期的布尔值去调用模板。下面这个辅助函数每次剥离一个布尔值，并把它重新作为模板参数导出：</p>
+<div class="highlight"><pre><span></span><code><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">...</span><span class="w"> </span><span class="n">FixedBools</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="p">...</span><span class="w"> </span><span class="n">Args</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">adam_kernel</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">current_bool</span><span class="p">,</span><span class="w"> </span><span class="n">Args</span><span class="p">...</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">current_bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">adam_kernel</span><span class="o">&lt;</span><span class="n">FixedBools</span><span class="p">...,</span><span class="w"> </span><span class="nb">true</span><span class="o">&gt;</span><span class="p">(</span><span class="n">args</span><span class="p">...);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">adam_kernel</span><span class="o">&lt;</span><span class="n">FixedBools</span><span class="p">...,</span><span class="w"> </span><span class="nb">false</span><span class="o">&gt;</span><span class="p">(</span><span class="n">args</span><span class="p">...);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>调用 <code>adam_kernel(amsgrad, maximize, zero_weight_decay, decoupled_weight_decay, ...)</code>
+会在编译期递归地生成全部 <code>2^4 = 16</code> 个特化版本，并在运行期用分发到正确的版本。</p>
+<h3 id="_3">跨核心并行</h3>
+<p>分发函数 <code>adam</code> 接收参数张量列表，取出裸指针，并运行一个 OpenMP 并行区域：</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#pragma omp parallel</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">rank</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">omp_get_thread_num</span><span class="p">();</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">nthreads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">omp_get_num_threads</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">params</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kt">int64_t</span><span class="w"> </span><span class="n">block_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">numel</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">nthreads</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">rank</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="p">(</span><span class="n">numel</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">nthreads</span><span class="p">));</span>
+<span class="w">        </span><span class="kt">int64_t</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="o">=</span>
+<span class="w">            </span><span class="p">(</span><span class="n">numel</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">nthreads</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">rank</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">min</span><span class="o">&lt;</span><span class="kt">int64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">rank</span><span class="p">,</span><span class="w"> </span><span class="n">numel</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">nthreads</span><span class="p">);</span>
+<span class="w">        </span><span class="n">adam_kernel</span><span class="p">(</span><span class="n">amsgrad</span><span class="p">,</span><span class="w"> </span><span class="n">maximize</span><span class="p">,</span><span class="w"> </span><span class="n">weight_decay</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="n">decoupled_weight_decay</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">params_ptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="n">grads_ptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">exp_avg_ptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="n">exp_avg_sq_ptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">max_exp_avg_sq_ptr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="n">lr</span><span class="p">,</span><span class="w"> </span><span class="n">beta1</span><span class="p">,</span><span class="w"> </span><span class="n">beta2</span><span class="p">,</span><span class="w"> </span><span class="n">eps</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">weight_decay</span><span class="p">,</span><span class="w"> </span><span class="n">block_size</span><span class="p">,</span><span class="w"> </span><span class="n">state_steps</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">item</span><span class="o">&lt;</span><span class="kt">int64_t</span><span class="o">&gt;</span><span class="p">());</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>关键细节在于：RoundPipe <strong>不是</strong>按参数<strong>列表</strong>来并行（即一个线程处理一个张量）。参数张量
+的大小差异极大——例如嵌入矩阵与偏置向量——那样会让大多数核心处于空闲。相反，<strong>每个线程都
+从每个张量中取走一段连续的切片</strong>。<code>nthreads</code> 个线程中的每一个大约处理每个张量
+<code>numel / nthreads</code> 个元素；<code>rank &lt; numel % nthreads</code> 这一项把余下的元素每个分给编号最小
+的那些线程。这样无论大小如何分布都能获得近乎完美的负载均衡，而且每个线程访问的是连续内存，
+对缓存和 SIMD 都很友好。</p>
+<h3 id="kernel-python">将 kernel 暴露给 Python</h3>
+<p>文件末尾用 pybind11 绑定该函数，并释放 GIL：</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#if PYBIND11_VERSION_HEX &gt;= 0x020D0000 </span><span class="c1">// pybind11 &gt;= 2.13</span>
+<span class="n">PYBIND11_MODULE</span><span class="p">(</span><span class="n">TORCH_EXTENSION_NAME</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">py</span><span class="o">::</span><span class="n">mod_gil_not_used</span><span class="p">())</span>
+<span class="cp">#else</span>
+<span class="n">PYBIND11_MODULE</span><span class="p">(</span><span class="n">TORCH_EXTENSION_NAME</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">)</span>
+<span class="cp">#endif</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">m</span><span class="p">.</span><span class="n">def</span><span class="p">(</span><span class="s">&quot;adam&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adam</span><span class="p">,</span><span class="w"> </span><span class="n">py</span><span class="o">::</span><span class="n">call_guard</span><span class="o">&lt;</span><span class="n">py</span><span class="o">::</span><span class="n">gil_scoped_release</span><span class="o">&gt;</span><span class="p">(),</span>
+<span class="w">          </span><span class="s">&quot;Adam optimizer step implementation in C++&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>py::gil_scoped_release</code> 在 kernel 执行期间释放 GIL，因此更新不会在
+运行时阻塞其他 Python 线程。当针对 pybind11 ≥ 2.13 构建时，版本判断还会通过
+<code>py::mod_gil_not_used()</code> 把该模块标记为不依赖 GIL，从而可以加载进自由线程（无 GIL）的
+CPython 而不会强制重新启用 GIL；更旧的 pybind11 则回退到普通宏。</p>
+<h2 id="2-kernel">第 2 层：构建与缓存 kernel</h2>
+<p><code>roundpipe/optim/optim_builder.py</code> 在首次使用时用 <code>torch.utils.cpp_extension.load</code> 编译
+kernel，并把可调用对象缓存在一个模块级字典中。</p>
+<p>Python 层只需要这两个导出的辅助函数：</p>
+<ul>
+<li><code>load_optim_function(name)</code> —— （如有必要）编译并缓存 kernel。</li>
+<li><code>get_optim_function(name)</code> —— 返回缓存的可调用对象，必要时按需编译。</li>
+</ul>
+<p>一切都以 <strong><code>name</code></strong> 为键，它必须与以下两者匹配：</p>
+<ul>
+<li>C++ 源文件 <code>csrc/&lt;name&gt;.cpp</code>，以及</li>
+<li>其中的 pybind11 函数名（<code>m.def("&lt;name&gt;", ...)</code>）。</li>
+</ul>
+<p>编译出的模块名里折入了两个哈希——<code>get_cpu_flags_hash()</code>（主机的 CPU 特性标志）和
+<code>get_cpp_flags_hash()</code>（编译选项）。如果你把缓存的构建产物挪到另一台 CPU 上，或修改了
+<code>CPP_FLAGS</code>，模块名就会改变，kernel 会被透明地重新编译，而不会悄悄运行一个为另一台机器
+调优的二进制。添加优化器时，你通常无需改动这个文件。</p>
+<h2 id="verify-vectorization">验证内层循环已向量化</h2>
+<p>为了确认核心循环已被向量化，RoundPipe <strong>在构建每个 kernel
+时都始终开启向量化报告</strong>，每次 kernel 编译都会留下一个 <code>vec.log</code> 。</p>
+<h3 id="veclog">找到 <code>vec.log</code></h3>
+<p>编译发生在 Torch 扩展的构建目录中，默认是
+<code>~/.cache/torch_extensions/…/roundpipe_optim_adam_&lt;hashes&gt;/</code>（可通过环境变量
+<code>TORCH_EXTENSIONS_DIR</code> 覆盖）。由于 kernel 会被缓存，该文件反映的是
+最近一次编译的结果。如果 kernel 已经构建好而你想要一份新的报告，删除该模块的构建目录（或
+改动源码、编译选项、主机 CPU）即可触发重新编译，例如：</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import torch; from roundpipe.optim import Adam; \</span>
+<span class="s2">p = torch.zeros(1024, requires_grad=True); p.grad = torch.randn(1024); \</span>
+<span class="s2">Adam([p]).step()&quot;</span>
+</code></pre></div>
+<h3 id="_4">阅读日志</h3>
+<p>查找指向 <code>adam.cpp</code> 中内层 <code>for</code> 循环的一行：</p>
+<div class="highlight"><pre><span></span><code>adam.cpp:24:27: optimized: loop vectorized using 32 byte vectors
+</code></pre></div>
+<p><code>32 byte vectors</code> 表示使用了 256 位的 AVX；在支持 AVX-512 的主机上你会看到 <code>64 byte vectors</code>。</p>
+<p>向量化失败的原因通常有：</p>
+<ul>
+<li><strong>循环里有分支</strong> → 把运行期开关提升为 <code>bool</code> 模板参数（如 <code>amsgrad</code> / <code>maximize</code>），
+  使分支在编译期被消除。</li>
+<li><strong>指针可能别名</strong> → 给数组指针加上 <code>__restrict</code>。</li>
+<li><strong>循环里有函数调用</strong> → 将一切循环不变量移出循环，确保调用的函数可以被内联。</li>
+</ul>
+<h2 id="1-python">第 1 层：Python 优化器类</h2>
+<p><code>roundpipe/optim/adam.py</code> 是一个普通的 <code>torch.optim.Optimizer</code> 子类。它要在接口和行为
+上都与 <code>torch.optim.Adam</code> 完全一致，然后把计算转发给 kernel。它有三项职责。</p>
+<p><strong>1. 在构造优化器时编译 kernel。</strong> <code>__init__</code> 的第一行就预热缓存，使第一次 <code>step()</code> 不会因
+编译而变慢：</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">betas</span><span class="o">=</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">),</span> <span class="o">...</span><span class="p">):</span>
+    <span class="n">load_optim_function</span><span class="p">(</span><span class="s2">&quot;adam&quot;</span><span class="p">)</span>
+    <span class="o">...</span>
+</code></pre></div>
+<p><strong>2. 像 PyTorch 一样管理状态。</strong> <code>_init_group</code> 惰性地分配 <code>step</code>、<code>exp_avg</code>、<code>exp_avg_sq</code>
+（以及用于 AMSGrad 的 <code>max_exp_avg_sq</code>），并把每个参数的张量收集并传入，由 C++ 中的 kernel 负责推进。
+<code>step()</code> 遍历各参数组并调用函数式的<code>adam(...)</code>，保持与 PyTorch 完全一致。</p>
+<p><strong>3. 先校验，再调用 kernel。</strong> 函数式的 <code>adam(...)</code> 调用 C++ 实现前先检查输入是否满足要求，
+通常包括：</p>
+<ul>
+<li>kernel 兼容的数据类型和布局。</li>
+<li>PyTorch 支持而本 kernel 不支持的选项（<code>fused</code>、<code>foreach</code>、<code>capturable</code>、<code>differentiable</code>）
+  被当作<strong>兼容占位参数</strong>接受。视情况忽略、给出警告或抛出错误，确保现有的训练脚本
+  无需改动即可继续工作。</li>
+</ul>
+<p>最后，<code>__init__.py</code> 导出该类：</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">.adam</span><span class="w"> </span><span class="kn">import</span> <span class="n">Adam</span>
 
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Adam&quot;</span><span class="p">]</span>
+</code></pre></div>
+<h2 id="pytorch">正确性：与 PyTorch 对拍</h2>
+<p>每个优化器都要与其 PyTorch 对应实现进行对拍验证。
+<code>tests/test_optim.py</code> 构造了一批五花八门的张量，在相同的梯度下让两个优化器各跑若干步，并检查结果。</p>
+<p>所有优化器都需要编写对应的测试，枚举不同的优化器参数并调用<code>run_optim</code>进行测试。</p>
+<h2 id="_5">检查清单</h2>
+<ul>
+<li><code>csrc/&lt;name&gt;.cpp</code>：模板化的无分支内层循环、<code>__restrict</code> 指针、循环不变量外提（以 <code>double</code>
+  计算，一次性转换为 <code>float</code>）、跨线程的 OpenMP 按块切分。</li>
+<li>在串行的准备阶段用 C++ 推进 step（<code>state_steps[i].add_(1)</code>），并把任何原地的状态修改也放在
+  该阶段。</li>
+<li>pybind 绑定名恰好为 <code>&lt;name&gt;</code>，并带 <code>py::gil_scoped_release</code>。</li>
+<li>通过查看 <code>vec.log</code> 确认内层循环已向量化（见<a href="#verify-vectorization">验证内层循环已向量化</a>）。</li>
+<li><code>&lt;name&gt;.py</code>：与 PyTorch 兼容的 API、<code>__init__</code> 中的 <code>load_optim_function</code>、CPU/fp32/连续
+  的断言、通过 <code>view_as_real</code> 处理复数。</li>
+<li>不支持的 PyTorch 选项以兼容占位参数处理。</li>
+<li>从 <code>optim/__init__.py</code> 导出。</li>
+<li>与 PyTorch 参考实现对拍，在所有开关组合下通过测试。</li>
+<li>在 <code>docs/API/optimizer.*.md</code> 添加对应的文档。</li>
+</ul>
 
 
 
