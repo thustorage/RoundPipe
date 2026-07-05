@@ -41,33 +41,24 @@ void sgd(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> momentum_bu
          vector<int64_t> is_first_step, double lr, double momentum, double dampening,
          double weight_decay, bool nesterov, bool maximize) {
     bool has_momentum = momentum != 0.0;
-    vector<int64_t> numel(params.size());
-    vector<float *> params_ptr(params.size());
-    vector<const float *> grads_ptr(params.size());
-    vector<float *> momentum_buffer_ptr(params.size());
-    for (size_t i = 0; i < params.size(); ++i) {
-        numel[i] = params[i].numel();
-        params_ptr[i] = params[i].mutable_data_ptr<float>();
-        grads_ptr[i] = grads[i].const_data_ptr<float>();
-        if (has_momentum) {
-            momentum_buffer_ptr[i] = momentum_buffer[i].mutable_data_ptr<float>();
-        } else {
-            momentum_buffer_ptr[i] = nullptr;
-        }
-    }
 #pragma omp parallel
     {
         int rank = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
         for (size_t i = 0; i < params.size(); ++i) {
-            int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
+            int64_t numel = params[i].numel();
+            int64_t block_size = numel / nthreads + (rank < (numel % nthreads));
             int64_t offset =
-                (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
+                (numel / nthreads) * rank + min<int64_t>(rank, numel % nthreads);
+            float *params_ptr = params[i].mutable_data_ptr<float>() + offset;
+            const float *grads_ptr = grads[i].const_data_ptr<float>() + offset;
+            float *momentum_buffer_ptr =
+                has_momentum ? momentum_buffer[i].mutable_data_ptr<float>() + offset
+                             : nullptr;
             double one_minus_dampening = is_first_step[i] ? 1.0 : (1.0 - dampening);
             sgd_kernel(maximize, weight_decay == 0.0, has_momentum, nesterov,
-                       params_ptr[i] + offset, grads_ptr[i] + offset,
-                       momentum_buffer_ptr[i] + offset, lr, momentum, weight_decay,
-                       one_minus_dampening, block_size);
+                       params_ptr, grads_ptr, momentum_buffer_ptr, lr, momentum,
+                       weight_decay, one_minus_dampening, block_size);
         }
     }
 }

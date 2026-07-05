@@ -41,17 +41,7 @@ void rprop_kernel(bool current_bool, Args... args) {
 void rprop(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> prev,
            vector<Tensor> step_size, vector<Tensor> state_steps, double etaminus,
            double etaplus, double step_size_min, double step_size_max, bool maximize) {
-    vector<int64_t> numel(params.size());
-    vector<float *> params_ptr(params.size());
-    vector<const float *> grads_ptr(params.size());
-    vector<float *> prev_ptr(params.size());
-    vector<float *> step_size_ptr(params.size());
     for (size_t i = 0; i < params.size(); ++i) {
-        numel[i] = params[i].numel();
-        params_ptr[i] = params[i].mutable_data_ptr<float>();
-        grads_ptr[i] = grads[i].const_data_ptr<float>();
-        prev_ptr[i] = prev[i].mutable_data_ptr<float>();
-        step_size_ptr[i] = step_size[i].mutable_data_ptr<float>();
         // The step is tracked in state for checkpoint fidelity but is unused in the
         // math.
         state_steps[i].add_(1);
@@ -61,12 +51,16 @@ void rprop(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> prev,
         int rank = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
         for (size_t i = 0; i < params.size(); ++i) {
-            int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
+            int64_t numel = params[i].numel();
+            int64_t block_size = numel / nthreads + (rank < (numel % nthreads));
             int64_t offset =
-                (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
-            rprop_kernel(maximize, params_ptr[i] + offset, grads_ptr[i] + offset,
-                         prev_ptr[i] + offset, step_size_ptr[i] + offset, etaminus,
-                         etaplus, step_size_min, step_size_max, block_size);
+                (numel / nthreads) * rank + min<int64_t>(rank, numel % nthreads);
+            float *params_ptr = params[i].mutable_data_ptr<float>() + offset;
+            const float *grads_ptr = grads[i].const_data_ptr<float>() + offset;
+            float *prev_ptr = prev[i].mutable_data_ptr<float>() + offset;
+            float *step_size_ptr = step_size[i].mutable_data_ptr<float>() + offset;
+            rprop_kernel(maximize, params_ptr, grads_ptr, prev_ptr, step_size_ptr,
+                         etaminus, etaplus, step_size_min, step_size_max, block_size);
         }
     }
 }

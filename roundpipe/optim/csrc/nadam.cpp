@@ -58,18 +58,8 @@ void nadam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
            vector<Tensor> state_steps, double beta1, double beta2, double lr,
            double weight_decay, double momentum_decay, double eps, bool maximize,
            bool decoupled_weight_decay) {
-    vector<int64_t> numel(params.size());
-    vector<float *> params_ptr(params.size());
-    vector<const float *> grads_ptr(params.size());
-    vector<float *> exp_avg_ptr(params.size());
-    vector<float *> exp_avg_sq_ptr(params.size());
     vector<double> mus(params.size());
     for (size_t i = 0; i < params.size(); ++i) {
-        numel[i] = params[i].numel();
-        params_ptr[i] = params[i].mutable_data_ptr<float>();
-        grads_ptr[i] = grads[i].const_data_ptr<float>();
-        exp_avg_ptr[i] = exp_avg[i].mutable_data_ptr<float>();
-        exp_avg_sq_ptr[i] = exp_avg_sq[i].mutable_data_ptr<float>();
         // Update the mu_product running state in place (serially: exactly once per
         // parameter, not once per OpenMP thread) with the same ATen mul_ as PyTorch, so
         // its float rounding is identical. The OMP loop reads it back post-mutation.
@@ -83,12 +73,16 @@ void nadam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
         int rank = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
         for (size_t i = 0; i < params.size(); ++i) {
-            int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
+            int64_t numel = params[i].numel();
+            int64_t block_size = numel / nthreads + (rank < (numel % nthreads));
             int64_t offset =
-                (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
+                (numel / nthreads) * rank + min<int64_t>(rank, numel % nthreads);
+            float *params_ptr = params[i].mutable_data_ptr<float>() + offset;
+            const float *grads_ptr = grads[i].const_data_ptr<float>() + offset;
+            float *exp_avg_ptr = exp_avg[i].mutable_data_ptr<float>() + offset;
+            float *exp_avg_sq_ptr = exp_avg_sq[i].mutable_data_ptr<float>() + offset;
             nadam_kernel(maximize, weight_decay == 0.0, decoupled_weight_decay,
-                         params_ptr[i] + offset, grads_ptr[i] + offset,
-                         exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset, mus[i],
+                         params_ptr, grads_ptr, exp_avg_ptr, exp_avg_sq_ptr, mus[i],
                          mu_products[i].item<double>(), beta1, beta2, lr, weight_decay,
                          momentum_decay, eps, state_steps[i].item<double>(),
                          block_size);

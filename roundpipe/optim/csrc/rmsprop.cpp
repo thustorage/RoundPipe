@@ -54,27 +54,7 @@ void rmsprop(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> square_
              vector<Tensor> state_steps, double lr, double alpha, double eps,
              double weight_decay, double momentum, bool centered, bool maximize) {
     bool has_momentum = momentum != 0.0;
-    vector<int64_t> numel(params.size());
-    vector<float *> params_ptr(params.size());
-    vector<const float *> grads_ptr(params.size());
-    vector<float *> square_avg_ptr(params.size());
-    vector<float *> grad_avg_ptr(params.size());
-    vector<float *> momentum_buffer_ptr(params.size());
     for (size_t i = 0; i < params.size(); ++i) {
-        numel[i] = params[i].numel();
-        params_ptr[i] = params[i].mutable_data_ptr<float>();
-        grads_ptr[i] = grads[i].const_data_ptr<float>();
-        square_avg_ptr[i] = square_avg[i].mutable_data_ptr<float>();
-        if (centered) {
-            grad_avg_ptr[i] = grad_avg[i].mutable_data_ptr<float>();
-        } else {
-            grad_avg_ptr[i] = nullptr;
-        }
-        if (has_momentum) {
-            momentum_buffer_ptr[i] = momentum_buffer[i].mutable_data_ptr<float>();
-        } else {
-            momentum_buffer_ptr[i] = nullptr;
-        }
         // The step is tracked in state for checkpoint fidelity but is unused in the
         // math.
         state_steps[i].add_(1);
@@ -84,14 +64,22 @@ void rmsprop(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> square_
         int rank = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
         for (size_t i = 0; i < params.size(); ++i) {
-            int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
+            int64_t numel = params[i].numel();
+            int64_t block_size = numel / nthreads + (rank < (numel % nthreads));
             int64_t offset =
-                (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
+                (numel / nthreads) * rank + min<int64_t>(rank, numel % nthreads);
+            float *params_ptr = params[i].mutable_data_ptr<float>() + offset;
+            const float *grads_ptr = grads[i].const_data_ptr<float>() + offset;
+            float *square_avg_ptr = square_avg[i].mutable_data_ptr<float>() + offset;
+            float *grad_avg_ptr =
+                centered ? grad_avg[i].mutable_data_ptr<float>() + offset : nullptr;
+            float *momentum_buffer_ptr =
+                has_momentum ? momentum_buffer[i].mutable_data_ptr<float>() + offset
+                             : nullptr;
             rmsprop_kernel(maximize, weight_decay == 0.0, centered, has_momentum,
-                           1.0 - alpha < 0.5, params_ptr[i] + offset,
-                           grads_ptr[i] + offset, square_avg_ptr[i] + offset,
-                           grad_avg_ptr[i] + offset, momentum_buffer_ptr[i] + offset,
-                           lr, alpha, eps, weight_decay, momentum, block_size);
+                           1.0 - alpha < 0.5, params_ptr, grads_ptr, square_avg_ptr,
+                           grad_avg_ptr, momentum_buffer_ptr, lr, alpha, eps,
+                           weight_decay, momentum, block_size);
         }
     }
 }

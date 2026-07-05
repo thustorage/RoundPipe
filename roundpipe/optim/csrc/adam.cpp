@@ -58,23 +58,7 @@ void adam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
           vector<Tensor> state_steps, bool amsgrad, double beta1, double beta2,
           double lr, double weight_decay, double eps, bool maximize,
           bool decoupled_weight_decay) {
-    vector<int64_t> numel(params.size());
-    vector<float *> params_ptr(params.size());
-    vector<const float *> grads_ptr(params.size());
-    vector<float *> exp_avg_ptr(params.size());
-    vector<float *> exp_avg_sq_ptr(params.size());
-    vector<float *> max_exp_avg_sq_ptr(params.size());
     for (size_t i = 0; i < params.size(); ++i) {
-        numel[i] = params[i].numel();
-        params_ptr[i] = params[i].mutable_data_ptr<float>();
-        grads_ptr[i] = grads[i].const_data_ptr<float>();
-        exp_avg_ptr[i] = exp_avg[i].mutable_data_ptr<float>();
-        exp_avg_sq_ptr[i] = exp_avg_sq[i].mutable_data_ptr<float>();
-        if (amsgrad) {
-            max_exp_avg_sq_ptr[i] = max_exp_avg_sq[i].mutable_data_ptr<float>();
-        } else {
-            max_exp_avg_sq_ptr[i] = nullptr;
-        }
         state_steps[i].add_(1);
     }
 #pragma omp parallel
@@ -82,14 +66,21 @@ void adam(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> exp_avg,
         int rank = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
         for (size_t i = 0; i < params.size(); ++i) {
-            int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
+            int64_t numel = params[i].numel();
+            int64_t block_size = numel / nthreads + (rank < (numel % nthreads));
             int64_t offset =
-                (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
+                (numel / nthreads) * rank + min<int64_t>(rank, numel % nthreads);
+            float *params_ptr = params[i].mutable_data_ptr<float>() + offset;
+            const float *grads_ptr = grads[i].const_data_ptr<float>() + offset;
+            float *exp_avg_ptr = exp_avg[i].mutable_data_ptr<float>() + offset;
+            float *exp_avg_sq_ptr = exp_avg_sq[i].mutable_data_ptr<float>() + offset;
+            float *max_exp_avg_sq_ptr =
+                amsgrad ? max_exp_avg_sq[i].mutable_data_ptr<float>() + offset
+                        : nullptr;
             adam_kernel(amsgrad, maximize, weight_decay == 0.0, decoupled_weight_decay,
-                        params_ptr[i] + offset, grads_ptr[i] + offset,
-                        exp_avg_ptr[i] + offset, exp_avg_sq_ptr[i] + offset,
-                        max_exp_avg_sq_ptr[i] + offset, lr, beta1, beta2, eps,
-                        weight_decay, block_size, state_steps[i].item<int64_t>());
+                        params_ptr, grads_ptr, exp_avg_ptr, exp_avg_sq_ptr,
+                        max_exp_avg_sq_ptr, lr, beta1, beta2, eps, weight_decay,
+                        block_size, state_steps[i].item<int64_t>());
         }
     }
 }

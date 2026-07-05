@@ -46,15 +46,7 @@ void asgd(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> ax,
           vector<Tensor> mus, vector<Tensor> etas, vector<Tensor> state_steps,
           double lambd, double lr, double t0, double alpha, double weight_decay,
           bool maximize) {
-    vector<int64_t> numel(params.size());
-    vector<float *> params_ptr(params.size());
-    vector<const float *> grads_ptr(params.size());
-    vector<float *> ax_ptr(params.size());
     for (size_t i = 0; i < params.size(); ++i) {
-        numel[i] = params[i].numel();
-        params_ptr[i] = params[i].mutable_data_ptr<float>();
-        grads_ptr[i] = grads[i].const_data_ptr<float>();
-        ax_ptr[i] = ax[i].mutable_data_ptr<float>();
         // Increment the step serially (exactly once per parameter). The eta/mu set on
         // the PREVIOUS step are read back in the OMP loop below (they are not mutated
         // until the serial write-back after the loop).
@@ -65,15 +57,18 @@ void asgd(vector<Tensor> params, vector<Tensor> grads, vector<Tensor> ax,
         int rank = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
         for (size_t i = 0; i < params.size(); ++i) {
-            int64_t block_size = numel[i] / nthreads + (rank < (numel[i] % nthreads));
+            int64_t numel = params[i].numel();
+            int64_t block_size = numel / nthreads + (rank < (numel % nthreads));
             int64_t offset =
-                (numel[i] / nthreads) * rank + min<int64_t>(rank, numel[i] % nthreads);
+                (numel / nthreads) * rank + min<int64_t>(rank, numel % nthreads);
             // eta/mu set on the PREVIOUS step drive the current update (step 1 uses
             // eta=lr, mu=1); mu==1 selects the exact-copy averaging template.
             double mu_value = mus[i].item<double>();
-            asgd_kernel(maximize, weight_decay == 0.0, mu_value == 1.0,
-                        params_ptr[i] + offset, grads_ptr[i] + offset,
-                        ax_ptr[i] + offset, lambd, etas[i].item<double>(), mu_value,
+            float *params_ptr = params[i].mutable_data_ptr<float>() + offset;
+            const float *grads_ptr = grads[i].const_data_ptr<float>() + offset;
+            float *ax_ptr = ax[i].mutable_data_ptr<float>() + offset;
+            asgd_kernel(maximize, weight_decay == 0.0, mu_value == 1.0, params_ptr,
+                        grads_ptr, ax_ptr, lambd, etas[i].item<double>(), mu_value,
                         weight_decay, block_size);
         }
     }
