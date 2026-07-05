@@ -7,7 +7,6 @@ from torch.optim.optimizer import (
     Optimizer,
     ParamsT,
     _get_scalar_dtype,
-    _to_scalar,
 )
 
 from .optim_builder import get_optim_function, load_optim_function
@@ -125,9 +124,7 @@ class Rprop(Optimizer):
                             grad, complex(group["lr"], group["lr"])
                         )
                     else:
-                        state["step_size"] = torch.full_like(
-                            grad, cast(float, _to_scalar(group["lr"]))
-                        )
+                        state["step_size"] = torch.full_like(grad, float(group["lr"]))
 
                 prevs.append(state["prev"])
                 step_sizes.append(state["step_size"])
