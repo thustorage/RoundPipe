@@ -20,9 +20,30 @@ from ..roundpipe import RoundPipe
 from .function import CompileForCausalLMLoss, ChunkedCompileLinearForCausalLMLoss
 
 
+def _resolve_attention_type(layer: GptOssDecoderLayer) -> str:
+    attention_type = getattr(layer.self_attn, "layer_type", None)
+    if attention_type is None:
+        attention_type = getattr(layer.self_attn, "attention_type", None)
+    if attention_type is None:
+        attention_type = getattr(layer, "attention_type", None)
+    if attention_type is None:
+        raise AttributeError("GPT-OSS decoder layer does not expose its attention type")
+    return cast(str, attention_type)
+
+
 class GptOssOptExperts(nn.Module):
     def __init__(self, mod: GptOssExperts) -> None:
         super().__init__()
+        expert_weights = (mod.gate_up_proj, mod.down_proj)
+        if any(
+            weight.ndim != 3 or not torch.is_floating_point(weight)
+            for weight in expert_weights
+        ):
+            raise TypeError(
+                "RoundPipe's GPT-OSS preset requires unpacked floating-point "
+                "expert weights; load a BF16/FP16 checkpoint instead of an "
+                "MXFP4/packed checkpoint."
+            )
         self.num_experts = mod.num_experts
         self.hidden_size = mod.hidden_size
         self.alpha = mod.alpha
@@ -39,13 +60,20 @@ class GptOssOptExperts(nn.Module):
         router_indices: torch.Tensor,
         routing_weights: torch.Tensor,
     ) -> torch.Tensor:
-        batch_size, sequence_length, hidden_dim = hidden_states.shape
-        hidden_states = hidden_states.view(-1, hidden_dim)
+        input_shape = hidden_states.shape
+        hidden_dim = input_shape[-1]
+        hidden_states = hidden_states.reshape(-1, hidden_dim)
 
         top_k = router_indices.shape[-1]
-        selected_experts = router_indices.view(-1)
-        routing_weights = torch.gather(routing_weights, 1, router_indices)
-        routing_weights = routing_weights.view(-1)
+        selected_experts = router_indices.reshape(-1)
+        if routing_weights.shape != router_indices.shape:
+            if routing_weights.shape[-1] != self.num_experts:
+                raise ValueError(
+                    "GPT-OSS routing weights must contain either top-k weights "
+                    "or one weight per expert"
+                )
+            routing_weights = torch.gather(routing_weights, 1, router_indices)
+        routing_weights = routing_weights.reshape(-1)
 
         _, sort_idx = torch.sort(selected_experts)
         permute_weight = routing_weights[sort_idx]
@@ -66,7 +94,7 @@ class GptOssOptExperts(nn.Module):
             save_for_recompute(token_per_expert_cpu)
 
         final_hidden_states = torch.zeros(
-            (batch_size * sequence_length, hidden_dim),
+            (hidden_states.shape[0], hidden_dim),
             dtype=hidden_states.dtype,
             device=hidden_states.device,
         )
@@ -97,7 +125,7 @@ class GptOssOptExperts(nn.Module):
             final_hidden_states.index_add_(0, expert_tokens, expert_output)
             start_idx += num_tokens
 
-        return final_hidden_states.view(batch_size, sequence_length, hidden_dim)
+        return final_hidden_states.reshape(input_shape)
 
 
 class GptOssForCausalLMPrefix(nn.Module):
@@ -203,7 +231,7 @@ class GptOssForCausalLMWrappedLayer(nn.Module):
         self.mlp = layer.mlp
         self.input_layernorm = layer.input_layernorm
         self.post_attention_layernorm = layer.post_attention_layernorm
-        self.attention_type = layer.self_attn.attention_type
+        self.attention_type = _resolve_attention_type(layer)
 
     def forward(self, input):
         (
