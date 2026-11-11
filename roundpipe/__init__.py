@@ -30,7 +30,7 @@ from .run_config import RoundPipeRunConfig
 from .scheduler import ModelExecutePlan
 from .wrapper import wrap_model_to_roundpipe
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 __all__ = [
     "doing_recompute",
     "OptimizerCtx",
