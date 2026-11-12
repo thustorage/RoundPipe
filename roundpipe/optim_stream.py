@@ -28,12 +28,16 @@ kernel_queue: KernelQueueType = queue.Queue()
 OPTIM_STOP = object()
 
 
+# Read in the importing thread. A new thread's torch.get_num_threads() follows the last
+# torch.set_num_threads() of any thread, e.g. 1 once a DataLoader pin-memory thread has run.
+_num_cpu: int = torch.get_num_threads()
+
+
 def controller() -> None:
     """Optimizer Stream thread function."""
-    num_cpu = torch.get_num_threads()
+    num_cpu = _num_cpu
     num_gpu = get_num_devices()
-    if num_cpu > num_gpu * 4:
-        torch.set_num_threads(num_cpu - num_gpu)
+    torch.set_num_threads(num_cpu - num_gpu if num_cpu > num_gpu * 4 else num_cpu)
 
     while True:
         job = kernel_queue.get()
